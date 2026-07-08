@@ -29,6 +29,11 @@ protected $casts = [
     'is_active' => 'boolean',
 ];
 
+public function getIndentedNameAttribute(): string
+{
+    return str_repeat('— ', max(0, $this->level - 1)) . $this->code . ' - ' . $this->name;
+}
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
@@ -44,4 +49,29 @@ protected $casts = [
         return $this->hasMany(Account::class, 'parent_id')
             ->orderBy('code');
     }
+
+    public function isHeader(): bool
+{
+    return ! $this->allows_entries;
+}
+
+public function isMovement(): bool
+{
+    return $this->allows_entries;
+}
+
+public function canReceiveChildren(): bool
+{
+    return $this->isHeader() && $this->is_active;
+}
+
+public function canReceiveEntries(): bool
+{
+    return $this->isMovement() && $this->is_active;
+}
+
+public function hasChildren(): bool
+{
+    return $this->children()->exists();
+}
 }

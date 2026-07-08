@@ -1,30 +1,30 @@
-<nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm">
+<nav class="navbar navbar-light bg-white border-bottom px-4">
+    <div class="ms-auto">
+        @auth
+            @php
+                $userCompanies = auth()->user()
+                    ->companies()
+                    ->wherePivot('is_active', true)
+                    ->get();
 
-    <div class="container-fluid">
+                $currentCompanyId = session('company_id');
+            @endphp
 
-        <span class="navbar-brand fw-bold">
-            ERP Conta
-        </span>
+            @if($userCompanies->count())
+                <form action="{{ route('companies.switch') }}" method="POST" class="d-flex align-items-center gap-2">
+                    @csrf
 
-        <div class="ms-auto d-flex align-items-center">
+                    <label class="text-muted small mb-0">Empresa:</label>
 
-            <span class="me-3">
-
-                {{ auth()->user()->name }}
-
-            </span>
-
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-
-                <button class="btn btn-outline-danger btn-sm">
-                    Cerrar sesión
-                </button>
-
-            </form>
-
-        </div>
-
+                    <select name="company_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach($userCompanies as $company)
+                            <option value="{{ $company->id }}" @selected((int) $currentCompanyId === (int) $company->id)>
+                                {{ $company->commercial_name ?? $company->business_name ?? $company->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            @endif
+        @endauth
     </div>
-
 </nav>

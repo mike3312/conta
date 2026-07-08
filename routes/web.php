@@ -1,5 +1,8 @@
 <?php
+
+use App\Http\Controllers\Accounting\AccountController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CompanySwitchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -15,7 +18,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
+    Route::post('/switch-company', [CompanySwitchController::class, 'update'])
+        ->name('companies.switch');
+
     Route::resource('companies', CompanyController::class);
+    Route::resource('accounts', AccountController::class);
 
 });
 
