@@ -26,6 +26,7 @@ public function rules(): array
         'address' => ['nullable', 'string'],
         'city' => ['nullable', 'string', 'max:100'],
         'state' => ['nullable', 'string', 'max:100'],
+        'create_default_catalog' => ['nullable', 'boolean'],
     ];
 }
 }

@@ -103,4 +103,34 @@
         @enderror
     </div>
 
+    <div class="col-12">
+    <hr>
+
+    <div class="card border-primary">
+        <div class="card-body">
+
+            <div class="form-check">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="create_default_catalog"
+                    name="create_default_catalog"
+                    value="1"
+                    checked
+                >
+
+                <label class="form-check-label fw-semibold" for="create_default_catalog">
+                    Crear catálogo contable base
+                </label>
+
+                <div class="form-text">
+                    Se generará automáticamente un catálogo inicial con cuentas de Activos,
+                    Pasivos, Capital, Ingresos, Gastos y Costos. Luego podrás modificarlo según
+                    las necesidades de la empresa.
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
 </div>
