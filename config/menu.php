@@ -47,6 +47,12 @@ return [
                 'icon' => 'bi-journals',
                 'active' => ['accounting.general-ledger.*'],
             ],
+            [
+                'title' => 'Balance de Comprobación',
+                'route' => 'accounting.trial-balance.index',
+                'icon' => 'bi-clipboard-data',
+                'active' => ['accounting.trial-balance.*'],
+            ],
         ],
     ],
 ];
