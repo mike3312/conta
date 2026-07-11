@@ -41,6 +41,12 @@ return [
                 'icon' => 'bi-book',
                 'active' => ['accounting.daily-book.*'],
             ],
+            [
+                'title' => 'Libro Mayor',
+                'route' => 'accounting.general-ledger.index',
+                'icon' => 'bi-journals',
+                'active' => ['accounting.general-ledger.*'],
+            ],
         ],
     ],
 ];

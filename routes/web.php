@@ -3,6 +3,7 @@
 use App\Http\Controllers\Accounting\AccountController;
 use App\Http\Controllers\Accounting\AccountingPeriodController;
 use App\Http\Controllers\Accounting\DailyBookController;
+use App\Http\Controllers\Accounting\GeneralLedgerController;
 use App\Http\Controllers\Accounting\JournalEntryController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanySwitchController;
@@ -35,6 +36,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('journal-entries', JournalEntryController::class);
     Route::get('accounting/daily-book', [DailyBookController::class, 'index'])
         ->name('accounting.daily-book.index');
+    Route::get('accounting/general-ledger', [GeneralLedgerController::class, 'index'])
+        ->name('accounting.general-ledger.index');
 
 });
 
