@@ -4,6 +4,7 @@ use App\Http\Controllers\Accounting\AccountController;
 use App\Http\Controllers\Accounting\AccountingPeriodController;
 use App\Http\Controllers\Accounting\DailyBookController;
 use App\Http\Controllers\Accounting\GeneralLedgerController;
+use App\Http\Controllers\Accounting\IncomeStatementController;
 use App\Http\Controllers\Accounting\JournalEntryController;
 use App\Http\Controllers\Accounting\TrialBalanceController;
 use App\Http\Controllers\CompanyController;
@@ -41,6 +42,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('accounting.general-ledger.index');
     Route::get('accounting/trial-balance', [TrialBalanceController::class, 'index'])
         ->name('accounting.trial-balance.index');
+    Route::get('accounting/income-statement', [IncomeStatementController::class, 'index'])
+        ->name('accounting.income-statement.index');
 
 });
 

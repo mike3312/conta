@@ -53,6 +53,12 @@ return [
                 'icon' => 'bi-clipboard-data',
                 'active' => ['accounting.trial-balance.*'],
             ],
+            [
+                'title' => 'Estado de Resultados',
+                'route' => 'accounting.income-statement.index',
+                'icon' => 'bi-graph-up-arrow',
+                'active' => ['accounting.income-statement.*'],
+            ],
         ],
     ],
 ];
