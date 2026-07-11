@@ -35,6 +35,12 @@ return [
                 'icon' => 'bi-journal-text',
                 'active' => ['journal-entries.*'],
             ],
+            [
+                'title' => 'Libro Diario',
+                'route' => 'accounting.daily-book.index',
+                'icon' => 'bi-book',
+                'active' => ['accounting.daily-book.*'],
+            ],
         ],
     ],
 ];
