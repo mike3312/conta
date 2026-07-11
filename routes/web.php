@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Accounting\AccountController;
+use App\Http\Controllers\Accounting\AccountingPeriodController;
+use App\Http\Controllers\Accounting\JournalEntryController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanySwitchController;
 use App\Http\Controllers\DashboardController;
@@ -23,6 +25,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('companies', CompanyController::class);
     Route::resource('accounts', AccountController::class);
+    Route::resource('accounting-periods', AccountingPeriodController::class)
+        ->except('show');
+    Route::post('journal-entries/{journalEntry}/post', [JournalEntryController::class, 'post'])
+        ->name('journal-entries.post');
+    Route::post('journal-entries/{journalEntry}/void', [JournalEntryController::class, 'void'])
+        ->name('journal-entries.void');
+    Route::resource('journal-entries', JournalEntryController::class);
 
 });
 
