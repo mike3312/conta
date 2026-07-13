@@ -4,25 +4,29 @@ namespace App\Services\Company;
 
 use App\Models\Company;
 use App\Models\User;
-use Illuminate\Support\Facades\Session;
 use Spatie\Permission\PermissionRegistrar;
 
 class SwitchCompanyService
 {
     public function handle(User $user, Company $company): void
     {
-        // Verificar que el usuario pertenece a la empresa
-        if (! $user->companies()->whereKey($company->id)->exists()) {
-            abort(403, 'No pertenece a esta empresa.');
+        $canUseCompany = $user->companies()
+            ->active()
+            ->wherePivot('is_active', true)
+            ->whereKey($company->id)
+            ->exists();
+
+        if (! $canUseCompany) {
+            abort(403, 'No pertenece a una empresa activa.');
         }
 
-        // Guardar empresa activa en la sesión
-        Session::put('company_id', $company->id);
+        session()->put('company_id', $company->id);
+        session()->migrate(true);
 
-        // Configurar Spatie Teams
-        app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+        $permissionRegistrar = app(PermissionRegistrar::class);
+        $permissionRegistrar->setPermissionsTeamId($company->id);
+        $permissionRegistrar->forgetCachedPermissions();
 
-        // Limpiar caché de permisos
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $user->unsetRelation('roles')->unsetRelation('permissions');
     }
 }

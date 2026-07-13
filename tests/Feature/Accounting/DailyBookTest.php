@@ -191,13 +191,14 @@ class DailyBookTest extends TestCase
             ->assertSee('No existen pólizas contabilizadas que coincidan con los filtros seleccionados.');
     }
 
-    public function test_user_without_access_to_active_company_is_forbidden(): void
+    public function test_company_without_access_in_session_is_replaced(): void
     {
         $otherCompany = $this->createCompany('Empresa sin acceso');
 
         $this->withSession(['company_id' => $otherCompany->id])
             ->get(route('accounting.daily-book.index'))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertSessionHas('company_id', $this->company->id);
     }
 
     private function createCompany(string $name): Company

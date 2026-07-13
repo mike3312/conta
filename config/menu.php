@@ -59,6 +59,12 @@ return [
                 'icon' => 'bi-graph-up-arrow',
                 'active' => ['accounting.income-statement.*'],
             ],
+            [
+                'title' => 'Balance General',
+                'route' => 'accounting.balance-sheet.index',
+                'icon' => 'bi-bank',
+                'active' => ['accounting.balance-sheet.*'],
+            ],
         ],
     ],
 ];

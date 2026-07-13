@@ -4,8 +4,8 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpFoundation\Response;
 
 class SetCompany
 {
@@ -14,12 +14,34 @@ class SetCompany
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $companyId = session('company_id');
+        $user = $request->user();
 
-        if ($companyId) {
-            app(PermissionRegistrar::class)
-                ->setPermissionsTeamId($companyId);
+        if (! $user) {
+            return $next($request);
         }
+
+        $activeCompanies = $user->companies()
+            ->active()
+            ->wherePivot('is_active', true)
+            ->orderBy('companies.id')
+            ->get(['companies.id']);
+
+        $companyId = session('company_id');
+        $isValid = $companyId !== null && $activeCompanies->contains(
+            fn ($company) => (string) $company->id === (string) $companyId
+        );
+
+        if (! $isValid) {
+            $companyId = $activeCompanies->first()?->id;
+
+            if ($companyId === null) {
+                session()->forget('company_id');
+            } else {
+                session()->put('company_id', $companyId);
+            }
+        }
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
 
         return $next($request);
     }

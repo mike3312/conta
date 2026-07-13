@@ -289,13 +289,14 @@ class TrialBalanceTest extends TestCase
         $this->assertSame('10.00', $response->viewData('balanceStatus')['movement_difference']);
     }
 
-    public function test_user_without_access_to_active_company_is_forbidden(): void
+    public function test_company_without_access_in_session_is_replaced(): void
     {
         $otherCompany = $this->createCompany('Empresa sin acceso');
 
         $this->withSession(['company_id' => $otherCompany->id])
             ->get(route('accounting.trial-balance.index'))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertSessionHas('company_id', $this->company->id);
     }
 
     private function createCompany(string $name): Company

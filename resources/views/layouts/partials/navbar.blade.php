@@ -4,10 +4,13 @@
             @php
                 $userCompanies = auth()->user()
                     ->companies()
+                    ->active()
                     ->wherePivot('is_active', true)
                     ->get();
 
-                $currentCompanyId = session('company_id');
+                $currentCompanyId = session()->has('company_id')
+                    ? (string) session('company_id')
+                    : null;
             @endphp
 
             @if($userCompanies->count())
@@ -18,7 +21,7 @@
 
                     <select name="company_id" class="form-select form-select-sm" onchange="this.form.submit()">
                         @foreach($userCompanies as $company)
-                            <option value="{{ $company->id }}" @selected((int) $currentCompanyId === (int) $company->id)>
+                            <option value="{{ $company->id }}" @selected($currentCompanyId !== null && $currentCompanyId === (string) $company->id)>
                                 {{ $company->commercial_name ?? $company->business_name ?? $company->name }}
                             </option>
                         @endforeach

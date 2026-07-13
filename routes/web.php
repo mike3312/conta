@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Accounting\AccountController;
 use App\Http\Controllers\Accounting\AccountingPeriodController;
+use App\Http\Controllers\Accounting\BalanceSheetController;
 use App\Http\Controllers\Accounting\DailyBookController;
 use App\Http\Controllers\Accounting\GeneralLedgerController;
 use App\Http\Controllers\Accounting\IncomeStatementController;
@@ -19,7 +20,7 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'company'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
@@ -44,6 +45,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('accounting.trial-balance.index');
     Route::get('accounting/income-statement', [IncomeStatementController::class, 'index'])
         ->name('accounting.income-statement.index');
+    Route::get('accounting/balance-sheet', [BalanceSheetController::class, 'index'])
+        ->name('accounting.balance-sheet.index');
 
 });
 
