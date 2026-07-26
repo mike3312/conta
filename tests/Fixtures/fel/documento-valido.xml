@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dte:GTDocumento xmlns:dte="http://www.sat.gob.gt/dte/fel/0.2.0" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Version="0.1">
+  <dte:SAT ClaseDocumento="dte"><dte:DTE ID="DatosCertificados"><dte:DatosEmision ID="DatosEmision">
+    <dte:DatosGenerales Tipo="FACT" FechaHoraEmision="2026-07-20T10:00:00-06:00" CodigoMoneda="GTQ"/>
+    <dte:Emisor NITEmisor="1234567" NombreEmisor="Emisor Sanitizado, S.A." NombreComercial="Comercio Demo" AfiliacionIVA="GEN" CodigoEstablecimiento="1"><dte:DireccionEmisor><dte:Direccion>Zona 1</dte:Direccion><dte:Municipio>Guatemala</dte:Municipio><dte:Departamento>Guatemala</dte:Departamento><dte:Pais>GT</dte:Pais></dte:DireccionEmisor></dte:Emisor>
+    <dte:Receptor IDReceptor="7654321" NombreReceptor="Receptor Sanitizado"><dte:DireccionReceptor><dte:Direccion>Ciudad</dte:Direccion></dte:DireccionReceptor></dte:Receptor>
+    <dte:Frases><dte:Frase TipoFrase="1" CodigoEscenario="1"/></dte:Frases>
+    <dte:Items><dte:Item NumeroLinea="1" BienOServicio="B"><dte:Cantidad>2</dte:Cantidad><dte:UnidadMedida>UNI</dte:UnidadMedida><dte:Descripcion>Producto de prueba</dte:Descripcion><dte:PrecioUnitario>56.000000</dte:PrecioUnitario><dte:Precio>112.000000</dte:Precio><dte:Descuento>0.000000</dte:Descuento><dte:Impuestos><dte:Impuesto><dte:NombreCorto>IVA</dte:NombreCorto><dte:CodigoUnidadGravable>1</dte:CodigoUnidadGravable><dte:MontoGravable>100.000000</dte:MontoGravable><dte:MontoImpuesto>12.000000</dte:MontoImpuesto></dte:Impuesto></dte:Impuestos><dte:Total>112.000000</dte:Total></dte:Item></dte:Items>
+    <dte:Totales><dte:TotalImpuestos><dte:TotalImpuesto NombreCorto="IVA" TotalMontoImpuesto="12.000000"/></dte:TotalImpuestos><dte:GranTotal>112.000000</dte:GranTotal></dte:Totales>
+    <dte:Complementos><dte:Complemento IDComplemento="MEDIOS_PAGO" NombreComplemento="Medios de pago" URIComplemento="urn:demo"><demo:Medio xmlns:demo="urn:demo">TRANSFERENCIA</demo:Medio></dte:Complemento></dte:Complementos>
+  </dte:DatosEmision></dte:DTE><dte:Adenda/><dte:Certificacion><dte:NITCertificador>9999999</dte:NITCertificador><dte:NombreCertificador>Certificador Demo</dte:NombreCertificador><dte:NumeroAutorizacion Serie="ABC123" Numero="100">11111111-2222-4333-8444-555555555555</dte:NumeroAutorizacion><dte:FechaHoraCertificacion>2026-07-20T10:01:00-06:00</dte:FechaHoraCertificacion></dte:Certificacion></dte:SAT>
+  <ds:Signature><ds:SignedInfo/></ds:Signature>
+</dte:GTDocumento>

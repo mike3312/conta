@@ -1,78 +1,39 @@
-<div class="bg-dark text-white vh-100" style="width: 260px;">
+@php
+    $mobile = $mobile ?? false;
+@endphp
+<div class="sidebar-inner">
+    @unless($mobile)
+        <a href="{{ route('dashboard') }}" class="app-brand">
+            <span class="brand-mark"><i class="bi bi-calculator-fill"></i></span><span>ERP Conta</span>
+        </a>
+    @endunless
 
-    <div class="p-3">
+    <nav class="sidebar-nav" aria-label="Navegación principal">
+        @foreach(config('menu') as $item)
+            @if(isset($item['children']))
+                @php
+                    $groupId = 'menu-'.Str::slug($item['title']).($mobile ? '-mobile' : '');
+                    $groupIsActive = collect($item['children'])->contains(fn ($child) => request()->routeIs(...($child['active'] ?? [$child['route']])));
+                @endphp
+                <button class="sidebar-link sidebar-group-toggle {{ $groupIsActive ? 'active-parent' : '' }}" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $groupId }}" aria-expanded="{{ $groupIsActive ? 'true' : 'false' }}">
+                    <span><i class="bi {{ $item['icon'] }}"></i>{{ $item['title'] }}</span><i class="bi bi-chevron-down sidebar-chevron"></i>
+                </button>
+                <div class="collapse {{ $groupIsActive ? 'show' : '' }} sidebar-submenu" id="{{ $groupId }}">
+                    @foreach($item['children'] as $child)
+                        @php($childIsActive = request()->routeIs(...($child['active'] ?? [$child['route']])))
+                        <a href="{{ route($child['route']) }}" class="sidebar-link sidebar-sublink {{ $childIsActive ? 'active' : '' }}" @if($childIsActive) aria-current="page" @endif>
+                            <i class="bi {{ $child['icon'] }}"></i>{{ $child['title'] }}
+                        </a>
+                    @endforeach
+                </div>
+            @else
+                @php($itemIsActive = request()->routeIs(...($item['active'] ?? [$item['route']])))
+                <a href="{{ route($item['route']) }}" class="sidebar-link {{ $itemIsActive ? 'active' : '' }}" @if($itemIsActive) aria-current="page" @endif>
+                    <i class="bi {{ $item['icon'] }}"></i>{{ $item['title'] }}
+                </a>
+            @endif
+        @endforeach
+    </nav>
 
-        <h4 class="text-center mb-4">
-            ERP CONTA
-        </h4>
-
-        <div class="list-group list-group-flush">
-
-            @foreach(config('menu') as $item)
-                @if(isset($item['children']))
-                    @php
-                        $groupIsActive = collect($item['children'])->contains(
-                            fn ($child) => request()->routeIs(...($child['active'] ?? [$child['route']]))
-                        );
-                    @endphp
-
-                    <details class="mb-1" @if($groupIsActive) open @endif>
-                        <summary
-                            class="list-group-item list-group-item-action d-flex align-items-center justify-content-between {{ $groupIsActive ? 'active' : '' }}"
-                            style="cursor: pointer; list-style: none;">
-                            <span>
-                                @if(isset($item['icon']))
-                                    <i class="bi {{ $item['icon'] }} me-2"></i>
-                                @endif
-
-                                {{ $item['title'] }}
-                            </span>
-
-                            <i class="bi bi-chevron-down small"></i>
-                        </summary>
-
-                        <div class="list-group list-group-flush ms-3 border-start">
-                            @foreach($item['children'] as $child)
-                                @php
-                                    $childIsActive = request()->routeIs(...($child['active'] ?? [$child['route']]));
-                                @endphp
-
-                                <a
-                                    href="{{ Route::has($child['route']) ? route($child['route']) : '#' }}"
-                                    class="list-group-item list-group-item-action ps-4 {{ $childIsActive ? 'active' : '' }}"
-                                    @if($childIsActive) aria-current="page" @endif>
-                                    @if(isset($child['icon']))
-                                        <i class="bi {{ $child['icon'] }} me-2"></i>
-                                    @endif
-
-                                    {{ $child['title'] }}
-                                </a>
-                            @endforeach
-                        </div>
-                    </details>
-                @else
-                    @php
-                        $itemIsActive = request()->routeIs(...($item['active'] ?? [$item['route']]));
-                    @endphp
-
-                    <a
-                        href="{{ Route::has($item['route']) ? route($item['route']) : '#' }}"
-                        class="list-group-item list-group-item-action {{ $itemIsActive ? 'active' : '' }}"
-                        @if($itemIsActive) aria-current="page" @endif>
-
-                        @if(isset($item['icon']))
-                            <i class="bi {{ $item['icon'] }} me-2"></i>
-                        @endif
-
-                        {{ $item['title'] }}
-
-                    </a>
-                @endif
-
-            @endforeach
-
-        </div>
-
-    </div>
-
+    <div class="sidebar-footer"><i class="bi bi-headset"></i><div><strong>¿Necesitas ayuda?</strong><small>Centro de soporte</small></div></div>
 </div>

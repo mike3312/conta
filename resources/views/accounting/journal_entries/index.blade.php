@@ -2,24 +2,7 @@
 
 @section('content')
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1">Pólizas contables</h1>
-            <p class="text-muted mb-0">Partidas de doble entrada de la empresa activa.</p>
-        </div>
-
-        <a href="{{ route('journal-entries.create') }}" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Nueva póliza
-        </a>
-    </div>
-
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
-    @endif
+    <x-page-header title="Pólizas contables" subtitle="Partidas de doble entrada de la empresa activa." icon="bi-journal-text"><x-slot:actions><x-action-button :href="route('journal-entries.create')" icon="bi-plus-lg">Nueva póliza</x-action-button></x-slot:actions></x-page-header>
 
     @if($errors->any())
         <div class="alert alert-danger">
@@ -90,14 +73,7 @@
                                     <td>{{ $journalEntry->description }}</td>
                                     <td>{{ $journalEntry->reference ?: '—' }}</td>
                                     <td>
-                                        @php
-                                            $badgeClass = match($journalEntry->status) {
-                                                \App\Enums\JournalEntryStatus::DRAFT => 'text-bg-secondary',
-                                                \App\Enums\JournalEntryStatus::POSTED => 'text-bg-success',
-                                                \App\Enums\JournalEntryStatus::VOIDED => 'text-bg-danger',
-                                            };
-                                        @endphp
-                                        <span class="badge {{ $badgeClass }}">{{ $journalEntry->status->label() }}</span>
+                                        <x-status-badge :status="$journalEntry->status" />
                                     </td>
                                     <td class="text-end">Q {{ number_format((float) ($journalEntry->total_debit ?? 0), 2) }}</td>
                                     <td class="text-end">Q {{ number_format((float) ($journalEntry->total_credit ?? 0), 2) }}</td>

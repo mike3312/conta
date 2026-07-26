@@ -46,6 +46,7 @@ class JournalEntryService
         return DB::transaction(function () use ($journalEntry, $data, $companyId, $userId) {
             $journalEntry = $this->getLockedEntry($journalEntry->id, $companyId);
             $this->ensureDraft($journalEntry);
+            $this->getOpenPeriod($journalEntry->accounting_period_id, $companyId, true);
             $period = $this->getOpenPeriod($data['accounting_period_id'], $companyId, true);
             $this->ensureDateWithinPeriod($data['entry_date'], $period);
             $lines = $this->validateAndNormalizeLines($data['lines'], $companyId);
@@ -128,6 +129,7 @@ class JournalEntryService
         DB::transaction(function () use ($journalEntry, $companyId) {
             $journalEntry = $this->getLockedEntry($journalEntry->id, $companyId);
             $this->ensureDraft($journalEntry);
+            $this->getOpenPeriod($journalEntry->accounting_period_id, $companyId, true);
             $journalEntry->delete();
         });
     }

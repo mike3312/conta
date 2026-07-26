@@ -1,15 +1,11 @@
 @extends('layouts.app')
 
 @section('title', 'Nueva empresa')
+@section('breadcrumbs')<li class="breadcrumb-item"><a href="{{ route('companies.index') }}">Empresas</a></li><li class="breadcrumb-item active">Nueva</li>@endsection
 
 @section('content')
 
-<div class="mb-4">
-    <h1 class="h3 mb-1">Nueva empresa</h1>
-    <p class="text-muted mb-0">
-        Registra una empresa para comenzar a trabajar en el sistema.
-    </p>
-</div>
+<x-page-header title="Nueva empresa" subtitle="Registra una empresa para comenzar a trabajar en el sistema." icon="bi-building-add" />
 
 <div class="card shadow-sm">
     <div class="card-body">

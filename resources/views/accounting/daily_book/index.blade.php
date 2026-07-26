@@ -2,10 +2,7 @@
 
 @section('content')
 <div class="container py-4">
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Libro Diario</h1>
-        <p class="text-muted mb-0">Pólizas contabilizadas de la empresa activa.</p>
-    </div>
+    <x-page-header title="Libro Diario" subtitle="Pólizas contabilizadas de la empresa activa." icon="bi-book" />
 
     @if($errors->any())
         <div class="alert alert-danger">

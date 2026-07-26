@@ -27,21 +27,11 @@
 </style>
 
 <div class="container py-4 income-statement-report">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-        <div>
-            <h1 class="h3 mb-1">Estado de Resultados</h1>
-            <h2 class="h5 mb-1">{{ $company->name }}</h2>
-            <p class="text-muted mb-0">
-                Del {{ isset($filters['date_from']) ? \Carbon\Carbon::parse($filters['date_from'])->format('d/m/Y') : 'inicio' }}
-                al {{ isset($filters['date_to']) ? \Carbon\Carbon::parse($filters['date_to'])->format('d/m/Y') : 'final' }}
-                · Moneda: {{ $company->currency }}
-            </p>
-        </div>
-
+    <x-page-header title="Estado de Resultados" :subtitle="$company->name.' · Moneda: '.$company->currency" icon="bi-graph-up-arrow"><x-slot:actions>
         <button type="button" class="btn btn-outline-secondary income-statement-no-print" onclick="window.print()">
             <i class="bi bi-printer me-1"></i>Imprimir
         </button>
-    </div>
+    </x-slot:actions></x-page-header>
 
     @if($errors->any())
         <div class="alert alert-danger income-statement-no-print">

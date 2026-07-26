@@ -2,10 +2,7 @@
 
 @section('content')
 <div class="container py-4">
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Editar póliza en borrador</h1>
-        <p class="text-muted mb-0">Modifica el encabezado y las líneas antes de contabilizar.</p>
-    </div>
+    <x-page-header title="Editar póliza en borrador" subtitle="Modifica el encabezado y las líneas antes de contabilizar." icon="bi-pencil-square" />
 
     @if($errors->any())
         <div class="alert alert-danger">

@@ -10,13 +10,14 @@ use App\Models\Account;
 use App\Models\AccountingPeriod;
 use App\Models\Company;
 use App\Models\JournalEntryLine;
+use App\Services\Accounting\AccountingBalanceAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class BalanceSheetController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, AccountingBalanceAuditService $balanceAudit)
     {
         $companyId = (int) session('company_id');
 
@@ -97,6 +98,13 @@ class BalanceSheetController extends Controller
         $totalEquityCents = $baseEquityCents + $pendingResultCents;
         $liabilitiesAndEquityCents = $totalLiabilitiesCents + $totalEquityCents;
         $differenceCents = $totalAssetsCents - $liabilitiesAndEquityCents;
+        $auditObservations = $balanceAudit->observations($companyId, $filters['cutoff_date']);
+        $isBalanced = abs($differenceCents) <= 1;
+        $balanceStatus = match (true) {
+            ! $isBalanced => 'unbalanced',
+            $auditObservations->isNotEmpty() => 'balanced_with_observations',
+            default => 'balanced',
+        };
 
         return view('accounting.balance_sheet.index', [
             'company' => $company,
@@ -118,7 +126,10 @@ class BalanceSheetController extends Controller
             'liabilitiesAndEquity' => $this->centsToAmount(abs($liabilitiesAndEquityCents)),
             'difference' => $this->centsToAmount(abs($differenceCents)),
             'differenceSide' => $differenceCents >= 0 ? 'Activos' : 'Pasivos y patrimonio',
-            'isBalanced' => abs($differenceCents) <= 1,
+            'isBalanced' => $isBalanced,
+            'balanceStatus' => $balanceStatus,
+            'auditObservations' => $auditObservations,
+            'observationCount' => $auditObservations->count(),
             'hasInformation' => $accounts->isNotEmpty() || $pendingResultCents !== 0,
         ]);
     }

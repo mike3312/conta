@@ -3,10 +3,7 @@
 @section('content')
 <div class="container py-4">
 
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Nuevo período contable</h1>
-        <p class="text-muted mb-0">Agrega un período contable a la empresa activa.</p>
-    </div>
+    <x-page-header title="Nuevo período contable" subtitle="Agrega un período contable a la empresa activa." icon="bi-calendar-plus" />
 
     <div class="card shadow-sm">
         <div class="card-body">

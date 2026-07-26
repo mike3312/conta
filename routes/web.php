@@ -11,6 +11,8 @@ use App\Http\Controllers\Accounting\TrialBalanceController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanySwitchController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FelDocumentController;
+use App\Http\Controllers\FelImportController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +32,8 @@ Route::middleware(['auth', 'verified', 'company'])->group(function () {
 
     Route::resource('companies', CompanyController::class);
     Route::resource('accounts', AccountController::class);
+    Route::post('accounting-periods/{accountingPeriod}/close', [AccountingPeriodController::class, 'close'])
+        ->name('accounting-periods.close');
     Route::resource('accounting-periods', AccountingPeriodController::class)
         ->except('show');
     Route::post('journal-entries/{journalEntry}/post', [JournalEntryController::class, 'post'])
@@ -47,6 +51,17 @@ Route::middleware(['auth', 'verified', 'company'])->group(function () {
         ->name('accounting.income-statement.index');
     Route::get('accounting/balance-sheet', [BalanceSheetController::class, 'index'])
         ->name('accounting.balance-sheet.index');
+
+    Route::get('fel-imports', [FelImportController::class, 'index'])->name('fel-imports.index');
+    Route::get('fel-imports/create', [FelImportController::class, 'create'])->name('fel-imports.create');
+    Route::post('fel-imports', [FelImportController::class, 'store'])->name('fel-imports.store');
+    Route::get('fel-imports/{felImportBatch}', [FelImportController::class, 'show'])->name('fel-imports.show');
+    Route::get('fel-documents', [FelDocumentController::class, 'index'])->name('fel-documents.index');
+    Route::get('fel-documents/{felDocument}', [FelDocumentController::class, 'show'])->name('fel-documents.show');
+    Route::post('fel-documents/{felDocument}/approve', [FelDocumentController::class, 'approve'])->name('fel-documents.approve');
+    Route::post('fel-documents/{felDocument}/observe', [FelDocumentController::class, 'observe'])->name('fel-documents.observe');
+    Route::post('fel-documents/{felDocument}/reject', [FelDocumentController::class, 'reject'])->name('fel-documents.reject');
+    Route::get('fel-documents/{felDocument}/xml', [FelDocumentController::class, 'downloadXml'])->name('fel-documents.xml');
 
 });
 

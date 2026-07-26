@@ -1,66 +1,223 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# ERP Conta
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+ERP Conta es un SaaS contable multiempresa desarrollado con Laravel 12. Cada usuario puede trabajar con una empresa activa, mantener su catálogo de cuentas, registrar pólizas de doble partida y consultar libros, reportes y un dashboard financiero sin mezclar información entre empresas.
 
-## About Laravel
+La empresa activa se conserva en `session('company_id')`. El middleware `SetCompany` comprueba que dicha empresa pertenezca al usuario y sincroniza el identificador de equipo utilizado por Spatie Laravel Permission.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Funcionalidades implementadas
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Registro, inicio de sesión, recuperación de contraseña y perfil de usuario.
+- Creación, listado y selección de empresas asociadas al usuario.
+- Catálogo contable jerárquico por empresa, con cuentas de encabezado y de movimiento.
+- Creación opcional de un catálogo base al registrar una empresa.
+- Períodos contables abiertos y cerrados, con validación de traslapes.
+- Pólizas contables en estados Borrador, Contabilizada y Anulada.
+- Validación de cuentas, fechas, doble partida, Debe y Haber.
+- Numeración correlativa de pólizas contabilizadas por empresa y período.
+- Libro Diario, Libro Mayor y Balance de Comprobación.
+- Estado de Resultados y Balance General.
+- Auditoría de cuentas de movimiento con saldo contrario a su naturaleza.
+- Cierre operativo de períodos con registro de fecha y usuario.
+- Bloqueo de creación, edición, eliminación, contabilización y anulación de pólizas en períodos cerrados.
+- Dashboard con ingresos, gastos, utilidad o pérdida, activos, gráfica mensual y actividad reciente.
+- Interfaz global responsive basada en Bootstrap 5.
+- Aislamiento de consultas y operaciones mediante la empresa activa.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Tecnologías
 
-## Learning Laravel
+- PHP `^8.2`
+- Laravel `^12.0`
+- Laravel Breeze
+- Blade y Alpine.js
+- Bootstrap `^5.3.8`
+- Bootstrap Icons `^1.13.1`
+- Chart.js `^4.5.1`
+- Vite `^6.0.11`
+- Spatie Laravel Permission `^6.25` con equipos habilitados
+- MySQL para el entorno local descrito en esta guía
+- PHPUnit 11 para pruebas automatizadas
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Requisitos en Windows con XAMPP
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+- Windows con XAMPP, PHP 8.2 o superior y el servicio MySQL iniciado. Apache solo es necesario si se decide servir el proyecto mediante XAMPP en lugar de `php artisan serve`.
+- Extensiones PHP requeridas por Laravel habilitadas, incluyendo Ctype, cURL, DOM, Fileinfo, Filter, Hash, Mbstring, OpenSSL, PCRE, PDO, PDO MySQL, Session, Tokenizer y XML.
+- Composer disponible desde PowerShell o Símbolo del sistema.
+- Node.js y npm instalados.
+- Git, si el proyecto se obtiene desde un repositorio.
+- Una base de datos MySQL vacía creada para el proyecto.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Comprueba las herramientas desde la terminal:
 
-## Laravel Sponsors
+```powershell
+php -v
+composer --version
+node --version
+npm --version
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Si `php` no está disponible globalmente, utiliza el ejecutable de PHP incluido en XAMPP o agrega su directorio al `PATH` de Windows.
 
-### Premium Partners
+## Instalación
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+1. Abre PowerShell en el directorio del proyecto.
+2. Instala las dependencias PHP:
 
-## Contributing
+   ```powershell
+   composer install
+   ```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+3. Crea el archivo de entorno:
 
-## Code of Conduct
+   ```powershell
+   Copy-Item .env.example .env
+   ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+4. Genera la clave de la aplicación:
 
-## Security Vulnerabilities
+   ```powershell
+   php artisan key:generate
+   ```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+5. Crea una base de datos MySQL vacía desde phpMyAdmin o el cliente MySQL.
+6. Configura `.env` como se indica en la siguiente sección.
+7. Ejecuta las migraciones:
 
-## License
+   ```powershell
+   php artisan migrate
+   ```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+8. Instala las dependencias del frontend:
+
+   ```powershell
+   npm install
+   ```
+
+9. Inicia Laravel y Vite.
+
+## Configuración de `.env` para MySQL
+
+`.env.example` utiliza SQLite como valor inicial del esqueleto Laravel. Para trabajar con MySQL en XAMPP, cambia únicamente la configuración local de `.env` y utiliza los datos creados para tu instalación:
+
+```dotenv
+APP_NAME="ERP Conta"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
+
+APP_LOCALE=es
+APP_FALLBACK_LOCALE=es
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=nombre_base_contable
+DB_USERNAME=usuario_mysql
+DB_PASSWORD=contraseña_mysql
+```
+
+No publiques `.env`, `APP_KEY` ni credenciales. Los valores anteriores son marcadores y deben sustituirse por la configuración local real.
+
+El proyecto usa por defecto sesiones, caché y colas respaldadas por base de datos. Las migraciones incluidas crean las tablas necesarias para esos controladores.
+
+## Migraciones y datos iniciales
+
+Las migraciones crean, entre otras, las siguientes tablas funcionales:
+
+- `users`, `password_reset_tokens` y `sessions`
+- `cache` y `cache_locks`
+- `jobs`, `job_batches` y `failed_jobs`
+- `tenants`
+- `companies` y `company_user`
+- `accounts`
+- `accounting_periods`
+- `journal_entries` y `journal_entry_lines`
+- Tablas de roles y permisos de Spatie
+
+Para crear o actualizar el esquema:
+
+```powershell
+php artisan migrate
+```
+
+`DatabaseSeeder` no ejecuta seeders automáticamente en el estado actual. El flujo recomendado para datos iniciales es:
+
+1. Registrar un usuario desde la aplicación.
+2. Crear una empresa.
+3. Mantener seleccionada la opción **Crear catálogo contable base**.
+
+Existe `AccountSeeder`, que trabaja únicamente sobre la primera empresa encontrada, y existe `RolesAndPermissionsSeeder` con una propuesta preliminar. No deben tratarse como configuración definitiva de producción.
+
+> La definición final de roles, permisos y responsabilidades está pendiente de validación con el cliente.
+
+## Comandos habituales
+
+```powershell
+# Dependencias PHP
+composer install
+
+# Dependencias y assets frontend
+npm install
+npm run dev
+npm run build
+
+# Laravel
+php artisan key:generate
+php artisan migrate
+php artisan migrate:status
+php artisan route:list
+php artisan optimize:clear
+php artisan test
+```
+
+El script definido en Composer puede iniciar servidor, cola, visor de logs y Vite en una sola terminal:
+
+```powershell
+composer run dev
+```
+
+## Iniciar el proyecto
+
+Opción simple, usando dos terminales:
+
+```powershell
+# Terminal 1
+php artisan serve
+
+# Terminal 2
+npm run dev
+```
+
+Abre `http://127.0.0.1:8000`, registra un usuario y crea la primera empresa.
+
+Para validar los assets destinados a producción:
+
+```powershell
+npm run build
+```
+
+## Pruebas
+
+La configuración de PHPUnit utiliza SQLite en memoria, aislada de la base MySQL local:
+
+```powershell
+php artisan test
+```
+
+Las pruebas cubren autenticación, empresa activa, aislamiento multiempresa, pólizas, reportes, dashboard, auditoría contable y cierre de períodos.
+
+## Limitaciones actuales
+
+- No existe consolidación de “Todas las empresas”; se trabaja con una empresa activa.
+- No se implementó reapertura de períodos cerrados.
+- El cierre no genera una póliza automática ni traslada la utilidad a resultados acumulados.
+- No se implementaron exportaciones contables a Excel o PDF.
+- Los seeders de empresa y tenant no generan datos.
+- `DatabaseSeeder` no carga información inicial automáticamente.
+- El envío real de correo depende de configurar el proveedor de correo; `.env.example` registra los mensajes en el log.
+- La administración integral de roles y permisos todavía no está conectada como flujo funcional definitivo.
+- **Los roles, permisos y alcances de cada perfil están pendientes de definición con el cliente.**
+
+## Documentación adicional
+
+- [Manual de usuario](docs/manual-usuario.md)
+- [Guía de demostración](docs/demostracion.md)

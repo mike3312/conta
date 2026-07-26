@@ -28,7 +28,7 @@
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-3"><span class="text-muted d-block">Estado</span><strong>{{ $journalEntry->status->label() }}</strong></div>
+                <div class="col-md-3"><span class="text-muted d-block">Estado</span><x-status-badge :status="$journalEntry->status" /></div>
                 <div class="col-md-3"><span class="text-muted d-block">Fecha</span><strong>{{ $journalEntry->entry_date->format('d/m/Y') }}</strong></div>
                 <div class="col-md-3"><span class="text-muted d-block">Período</span><strong>{{ $journalEntry->accountingPeriod->name }}</strong></div>
                 <div class="col-md-3"><span class="text-muted d-block">Referencia</span><strong>{{ $journalEntry->reference ?: '—' }}</strong></div>

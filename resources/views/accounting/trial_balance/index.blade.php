@@ -2,12 +2,7 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-        <div>
-            <h1 class="h3 mb-1">Balance de Comprobación</h1>
-            <p class="text-muted mb-0">Saldos y movimientos de las cuentas de la empresa activa.</p>
-        </div>
-
+    <x-page-header title="Balance de Comprobación" subtitle="Saldos y movimientos de las cuentas de la empresa activa." icon="bi-clipboard-data"><x-slot:actions>
         @if($balanceStatus['is_balanced'])
             <span class="badge text-bg-success fs-6 px-3 py-2">
                 <i class="bi bi-check-circle me-1"></i>Cuadrado
@@ -17,7 +12,7 @@
                 <i class="bi bi-exclamation-triangle me-1"></i>Descuadrado
             </span>
         @endif
-    </div>
+    </x-slot:actions></x-page-header>
 
     @if($errors->any())
         <div class="alert alert-danger">

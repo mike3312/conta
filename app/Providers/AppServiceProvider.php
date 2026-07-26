@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +20,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        View::composer('layouts.partials.navbar', function ($view): void {
+            $user = auth()->user();
+            $companies = $user
+                ? $user->companies()->active()->wherePivot('is_active', true)->orderBy('name')->get()
+                : collect();
+            $activeCompany = $companies->first(
+                fn ($company) => (string) $company->id === (string) session('company_id')
+            );
+
+            $view->with([
+                'layoutCompanies' => $companies,
+                'layoutActiveCompany' => $activeCompany,
+            ]);
+        });
     }
 }

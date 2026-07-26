@@ -3,12 +3,7 @@
 @section('content')
 <div class="container py-4">
 
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Editar cuenta</h1>
-        <p class="text-muted mb-0">
-            Modifica los datos de la cuenta {{ $account->code }} - {{ $account->name }}.
-        </p>
-    </div>
+    <x-page-header title="Editar cuenta" :subtitle="'Modifica los datos de '.$account->code.' - '.$account->name.'.'" icon="bi-pencil-square" />
 
     <div class="card shadow-sm">
         <div class="card-body">

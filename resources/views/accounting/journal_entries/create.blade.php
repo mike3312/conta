@@ -2,10 +2,7 @@
 
 @section('content')
 <div class="container py-4">
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Nueva póliza contable</h1>
-        <p class="text-muted mb-0">Guarda una partida como borrador para completarla o contabilizarla después.</p>
-    </div>
+    <x-page-header title="Nueva póliza contable" subtitle="Guarda una partida como borrador para completarla o contabilizarla después." icon="bi-journal-plus" />
 
     @if($errors->any())
         <div class="alert alert-danger">

@@ -3,10 +3,7 @@
 @section('content')
 <div class="container py-4">
 
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Editar período contable</h1>
-        <p class="text-muted mb-0">Modifica los datos del período {{ $accountingPeriod->name }}.</p>
-    </div>
+    <x-page-header title="Editar período contable" :subtitle="'Modifica los datos del período '.$accountingPeriod->name.'.'" icon="bi-calendar-check" />
 
     <div class="card shadow-sm">
         <div class="card-body">

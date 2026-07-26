@@ -1,22 +1,11 @@
 @extends('layouts.app')
 
 @section('title', 'Empresas')
+@section('breadcrumbs')<li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Resumen</a></li><li class="breadcrumb-item active">Empresas</li>@endsection
 
 @section('content')
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 mb-0">Empresas</h1>
-
-    <a href="{{ route('companies.create') }}" class="btn btn-primary">
-        Nueva empresa
-    </a>
-</div>
-
-@if(session('success'))
-    <div class="alert alert-success">
-        {{ session('success') }}
-    </div>
-@endif
+<x-page-header title="Empresas" subtitle="Administra las organizaciones asociadas a tu usuario." icon="bi-buildings"><x-slot:actions><x-action-button :href="route('companies.create')" icon="bi-plus-lg">Nueva empresa</x-action-button></x-slot:actions></x-page-header>
 
 <div class="card shadow-sm">
     <div class="card-body">
@@ -48,9 +37,7 @@
                                 <td>{{ $company->legal_name }}</td>
                                 <td>{{ $company->tax_id }}</td>
                                 <td>
-                                    <span class="badge bg-success">
-                                        {{ $company->status->value ?? $company->status }}
-                                    </span>
+                                    <x-status-badge :status="$company->status" />
                                 </td>
                                 <td class="text-end">
                                     <a href="#" class="btn btn-sm btn-outline-secondary">

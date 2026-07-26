@@ -27,19 +27,12 @@
 </style>
 
 <div class="container py-4 balance-sheet-report">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-        <div>
-            <h1 class="h3 mb-1">Balance General</h1>
-            <h2 class="h5 mb-1">{{ $company->name }}</h2>
-            <p class="text-muted mb-0">
-                Balance General al {{ \Carbon\Carbon::parse($filters['cutoff_date'])->format('d/m/Y') }}
-                · Moneda: {{ $company->currency }}
-            </p>
-        </div>
-
+    <x-page-header title="Balance General" :subtitle="$company->name.' · Al '.\Carbon\Carbon::parse($filters['cutoff_date'])->format('d/m/Y')" icon="bi-bank"><x-slot:actions>
         <div class="d-flex align-items-center gap-2 balance-sheet-no-print">
-            @if($isBalanced)
+            @if($balanceStatus === 'balanced')
                 <span class="badge text-bg-success fs-6 px-3 py-2">Balance cuadrado</span>
+            @elseif($balanceStatus === 'balanced_with_observations')
+                <span class="badge text-bg-warning fs-6 px-3 py-2">Balance cuadrado con observaciones · {{ $observationCount }}</span>
             @else
                 <span class="badge text-bg-danger fs-6 px-3 py-2">Balance descuadrado</span>
             @endif
@@ -48,7 +41,7 @@
                 <i class="bi bi-printer me-1"></i>Imprimir
             </button>
         </div>
-    </div>
+    </x-slot:actions></x-page-header>
 
     @if($errors->any())
         <div class="alert alert-danger balance-sheet-no-print">
@@ -66,6 +59,32 @@
             a favor de {{ $differenceSide }}. No se realizaron ajustes automáticos.
         </div>
     @endunless
+
+    @if($auditObservations->isNotEmpty())
+        <div class="alert alert-warning balance-sheet-observations">
+            <div class="d-flex align-items-start gap-2 mb-3">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div><strong>Balance cuadrado con observaciones.</strong><div>Se detectaron {{ $observationCount }} {{ Str::plural('cuenta', $observationCount) }} con saldo contrario a su naturaleza esperada.</div></div>
+            </div>
+            <div class="table-responsive bg-white rounded border">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Código</th><th>Cuenta</th><th>Naturaleza esperada</th><th class="text-end">Total Debe</th><th class="text-end">Total Haber</th><th class="text-end">Saldo contrario</th></tr></thead>
+                    <tbody>
+                        @foreach($auditObservations as $observation)
+                            <tr>
+                                <td class="fw-semibold">{{ $observation['code'] }}</td>
+                                <td>{{ $observation['name'] }}</td>
+                                <td>{{ $observation['expected_nature'] }}</td>
+                                <td class="text-end">{{ $company->currency }} {{ number_format((float) $observation['total_debit'], 2) }}</td>
+                                <td class="text-end">{{ $company->currency }} {{ number_format((float) $observation['total_credit'], 2) }}</td>
+                                <td class="text-end fw-semibold text-warning-emphasis">{{ $company->currency }} {{ number_format((float) $observation['contrary_balance'], 2) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
 
     @include('accounting.balance_sheet._filters')
 
@@ -99,7 +118,7 @@
             </div></div>
         </div>
         <div class="col-md">
-            <div class="card shadow-sm h-100 {{ $isBalanced ? 'border-success' : 'border-danger' }}"><div class="card-body">
+            <div class="card shadow-sm h-100 {{ $balanceStatus === 'balanced' ? 'border-success' : ($balanceStatus === 'balanced_with_observations' ? 'border-warning' : 'border-danger') }}"><div class="card-body">
                 <span class="text-muted d-block">Diferencia</span>
                 <strong class="fs-5">{{ $company->currency }} {{ number_format((float) $difference, 2) }}</strong>
             </div></div>
@@ -174,9 +193,13 @@
                     <div class="col-md-4"><span class="text-muted d-block">Diferencia</span><strong>{{ $company->currency }} {{ number_format((float) $difference, 2) }}</strong></div>
                 </div>
                 <div class="text-center mt-3">
-                    <span class="badge {{ $isBalanced ? 'text-bg-success' : 'text-bg-danger' }} fs-6">
-                        {{ $isBalanced ? 'Balance cuadrado' : 'Balance descuadrado' }}
-                    </span>
+                    @if($balanceStatus === 'balanced')
+                        <span class="badge text-bg-success fs-6">Balance cuadrado</span>
+                    @elseif($balanceStatus === 'balanced_with_observations')
+                        <span class="badge text-bg-warning fs-6">Balance cuadrado con observaciones · {{ $observationCount }}</span>
+                    @else
+                        <span class="badge text-bg-danger fs-6">Balance descuadrado</span>
+                    @endif
                 </div>
             </div>
         </div>
