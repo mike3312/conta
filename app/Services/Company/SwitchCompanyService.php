@@ -21,6 +21,11 @@ class SwitchCompanyService
         }
 
         session()->put('company_id', $company->id);
+        session()->forget([
+            'fel_reclassification_preview',
+            'fel_reclassification_preview_result',
+            'fel_reclassification_result',
+        ]);
         session()->migrate(true);
 
         $permissionRegistrar = app(PermissionRegistrar::class);

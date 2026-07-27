@@ -11,13 +11,21 @@ use App\Models\AccountingPeriod;
 use App\Models\Company;
 use App\Models\JournalEntryLine;
 use App\Services\Accounting\AccountingBalanceAuditService;
+use App\Services\Reports\AccountingExcelExporter;
+use App\Services\Reports\AccountingPdfExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class BalanceSheetController extends Controller
 {
-    public function index(Request $request, AccountingBalanceAuditService $balanceAudit)
+    public function __construct(
+        private readonly AccountingPdfExporter $pdfExporter,
+        private readonly AccountingExcelExporter $excelExporter,
+        private readonly AccountingBalanceAuditService $balanceAudit,
+    ) {}
+
+    public function index(Request $request)
     {
         $companyId = (int) session('company_id');
 
@@ -98,7 +106,7 @@ class BalanceSheetController extends Controller
         $totalEquityCents = $baseEquityCents + $pendingResultCents;
         $liabilitiesAndEquityCents = $totalLiabilitiesCents + $totalEquityCents;
         $differenceCents = $totalAssetsCents - $liabilitiesAndEquityCents;
-        $auditObservations = $balanceAudit->observations($companyId, $filters['cutoff_date']);
+        $auditObservations = $this->balanceAudit->observations($companyId, $filters['cutoff_date']);
         $isBalanced = abs($differenceCents) <= 1;
         $balanceStatus = match (true) {
             ! $isBalanced => 'unbalanced',
@@ -132,6 +140,29 @@ class BalanceSheetController extends Controller
             'observationCount' => $auditObservations->count(),
             'hasInformation' => $accounts->isNotEmpty() || $pendingResultCents !== 0,
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+
+        return $this->pdfExporter->download('accounting.balance_sheet.exports.pdf', 'balance-general', $company, $this->index($request)->getData(), now($company->timezone));
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+
+        return $this->excelExporter->balanceSheet($company, $this->index($request)->getData(), now($company->timezone));
+    }
+
+    private function activeCompany(Request $request): ?Company
+    {
+        $companyId = (int) session('company_id');
+
+        return $companyId ? $request->user()->companies()->active()->wherePivot('is_active', true)->whereKey($companyId)->first() : null;
     }
 
     private function accountTotalsQuery(int $companyId, string $cutoffDate)

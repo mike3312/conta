@@ -104,7 +104,7 @@ class FelImportTest extends TestCase
             $this->assertDatabaseCount('fel_documents', 1);
             $this->assertDatabaseHas('fel_import_batches', ['total_records' => 2, 'successful_records' => 1, 'failed_records' => 1]);
             Log::shouldHaveReceived('info')->with('FEL ZIP processed', Mockery::type('array'))->once();
-            Log::shouldHaveReceived('warning')->with('FEL XML parser error', Mockery::type('array'))->once();
+            Log::shouldHaveReceived('error')->with('FEL XML parser failed', Mockery::type('array'))->once();
         } finally {
             @unlink($path);
         }

@@ -2,6 +2,8 @@
 
 namespace App\Services\Fel;
 
+use App\Exceptions\FelImportException;
+use Carbon\Carbon;
 use DOMDocument;
 use DOMXPath;
 use Generator;
@@ -31,10 +33,20 @@ class FelExcelParserService
                 'csv' => $this->csvRows($path), 'xlsx' => $this->xlsxRows($path), 'xls' => $this->legacyRows($path), default => throw new InvalidArgumentException('Formato tabular no admitido.')
             };
             yield from $this->normalizeRows($rows);
-        } catch (InvalidArgumentException $exception) {
+        } catch (FelImportException $exception) {
             throw $exception;
+        } catch (InvalidArgumentException $exception) {
+            $headers = str_contains($exception->getMessage(), 'columnas obligatorias')
+                || str_contains($exception->getMessage(), 'encabezados FEL');
+
+            throw new FelImportException(
+                $headers ? 'FEL-EXCEL-HEADERS' : 'FEL-EXCEL-READ',
+                $headers ? 'spreadsheet_headers' : 'spreadsheet_read',
+                $exception->getMessage(),
+                $exception,
+            );
         } catch (Throwable $exception) {
-            throw new InvalidArgumentException('No se pudo leer el archivo tabular.', previous: $exception);
+            throw new FelImportException('FEL-EXCEL-READ', 'spreadsheet_read', 'No se pudo leer el archivo tabular.', $exception);
         }
     }
 
@@ -265,18 +277,41 @@ class FelExcelParserService
 
     private function number(mixed $value): ?float
     {
-        $value = str_replace([',', 'Q', '$', ' '], '', (string) $value);
+        $value = trim(str_replace(["\u{00A0}", 'Q', '$', ' '], '', (string) $value));
+        if (str_contains($value, ',') && str_contains($value, '.')) {
+            $value = strrpos($value, ',') > strrpos($value, '.')
+                ? str_replace(['.', ','], ['', '.'], $value)
+                : str_replace(',', '', $value);
+        } elseif (str_contains($value, ',')) {
+            $decimals = strlen($value) - strrpos($value, ',') - 1;
+            $value = $decimals > 0 && $decimals <= 2 ? str_replace(',', '.', $value) : str_replace(',', '', $value);
+        }
 
         return is_numeric($value) ? (float) $value : null;
     }
 
-    private function date(mixed $value): mixed
+    private function date(mixed $value): ?string
     {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
         if (is_numeric($value) && (float) $value > 1000) {
-            return gmdate('Y-m-d H:i:s', ((int) $value - 25569) * 86400);
+            return gmdate('Y-m-d H:i:s', (int) round(((float) $value - 25569) * 86400));
         }
 
-        return $value;
+        $value = trim((string) $value);
+        foreach (['d/m/Y H:i:s', 'd/m/Y H:i', 'd/m/Y', 'Y-m-d H:i:s', 'Y-m-d'] as $format) {
+            try {
+                $date = Carbon::createFromFormat($format, $value);
+                if ($date !== false) {
+                    return $date->format('Y-m-d H:i:s');
+                }
+            } catch (Throwable) {
+                // Try the next known FEL/Excel format.
+            }
+        }
+
+        return null;
     }
 
     private function columnIndex(string $letters): int

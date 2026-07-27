@@ -11,8 +11,11 @@ use App\Models\Account;
 use App\Models\AccountingPeriod;
 use App\Models\Company;
 use App\Models\JournalEntryLine;
+use App\Services\Reports\AccountingExcelExporter;
+use App\Services\Reports\AccountingPdfExporter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -20,6 +23,11 @@ use Illuminate\Validation\ValidationException;
 
 class TrialBalanceController extends Controller
 {
+    public function __construct(
+        private readonly AccountingPdfExporter $pdfExporter,
+        private readonly AccountingExcelExporter $excelExporter,
+    ) {}
+
     public function index(Request $request)
     {
         $companyId = (int) session('company_id');
@@ -118,14 +126,20 @@ class TrialBalanceController extends Controller
         $generalTotals = $this->getGeneralTotals(clone $accountsQuery);
         $balanceStatus = $this->buildBalanceStatus($generalTotals);
 
-        $trialBalance = $accountsQuery
-            ->orderBy('accounts.code')
-            ->paginate(25)
-            ->withQueryString();
+        $accountsQuery->orderBy('accounts.code');
+        $trialBalance = $request->attributes->getBoolean('exporting')
+            ? $accountsQuery->get()
+            : $accountsQuery->paginate(25)->withQueryString();
 
-        $trialBalance->setCollection(
-            $trialBalance->getCollection()->map(fn (Account $account) => $this->buildAccountRow($account))
-        );
+        $trialCollection = $trialBalance instanceof LengthAwarePaginator
+            ? $trialBalance->getCollection()
+            : $trialBalance;
+        $preparedRows = $trialCollection->map(fn (Account $account) => $this->buildAccountRow($account));
+        if ($trialBalance instanceof LengthAwarePaginator) {
+            $trialBalance->setCollection($preparedRows);
+        } else {
+            $trialBalance = $preparedRows;
+        }
 
         return view('accounting.trial_balance.index', [
             'trialBalance' => $trialBalance,
@@ -137,6 +151,32 @@ class TrialBalanceController extends Controller
             'filters' => $filters,
             'currency' => $company->currency,
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+        $request->attributes->set('exporting', true);
+        $data = $this->index($request)->getData();
+
+        return $this->pdfExporter->download('accounting.trial_balance.exports.pdf', 'balance-comprobacion', $company, $data, now($company->timezone), 'landscape');
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+        $request->attributes->set('exporting', true);
+
+        return $this->excelExporter->trialBalance($company, $this->index($request)->getData(), now($company->timezone));
+    }
+
+    private function activeCompany(Request $request): ?Company
+    {
+        $companyId = (int) session('company_id');
+
+        return $companyId ? $request->user()->companies()->active()->wherePivot('is_active', true)->whereKey($companyId)->first() : null;
     }
 
     private function accountTotalsQuery(int $companyId, array $filters, bool $previous)

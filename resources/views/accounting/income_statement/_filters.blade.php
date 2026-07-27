@@ -55,6 +55,8 @@
                 <a href="{{ route('accounting.income-statement.index') }}" class="btn btn-outline-secondary">
                     Limpiar filtros
                 </a>
+                <a href="{{ route('accounting.income-statement.export.pdf', $filters) }}" class="btn btn-outline-danger"><i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF</a>
+                <a href="{{ route('accounting.income-statement.export.excel', $filters) }}" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel</a>
             </div>
         </form>
     </div>

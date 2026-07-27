@@ -5,6 +5,7 @@
             @if($layoutCompanies->isNotEmpty())
                 <form action="{{ route('companies.switch') }}" method="POST" class="company-switcher">
                     @csrf
+                    <input type="hidden" name="redirect_context" value="{{ request()->routeIs('fel.*', 'fel-documents.*', 'fel-imports.*') ? 'fel' : 'dashboard' }}">
                     <label for="companySwitcher" class="visually-hidden">Empresa activa</label>
                     <i class="bi bi-buildings"></i>
                     <select id="companySwitcher" name="company_id" class="form-select form-select-sm" onchange="this.form.submit()">

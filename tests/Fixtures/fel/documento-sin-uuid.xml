@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dte:GTDocumento xmlns:dte="http://www.sat.gob.gt/dte/fel/0.2.0" Version="0.1">
+  <dte:SAT><dte:DTE><dte:DatosEmision>
+    <dte:DatosGenerales Tipo="FACT" FechaHoraEmision="2026-07-20T10:00:00-06:00" CodigoMoneda="GTQ"/>
+    <dte:Emisor NITEmisor="1234567" NombreEmisor="Emisor Sanitizado" AfiliacionIVA="GEN" CodigoEstablecimiento="1"/>
+    <dte:Receptor IDReceptor="7654321" NombreReceptor="Receptor Sanitizado"/>
+    <dte:Items><dte:Item NumeroLinea="1" BienOServicio="B"><dte:Cantidad>1</dte:Cantidad><dte:Descripcion>Servicio</dte:Descripcion><dte:PrecioUnitario>100</dte:PrecioUnitario><dte:Precio>100</dte:Precio><dte:Descuento>0</dte:Descuento><dte:Total>112</dte:Total></dte:Item></dte:Items>
+    <dte:Totales><dte:GranTotal>112</dte:GranTotal></dte:Totales>
+  </dte:DatosEmision></dte:DTE></dte:SAT>
+</dte:GTDocumento>

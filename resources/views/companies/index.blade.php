@@ -44,7 +44,7 @@
                                         Entrar
                                     </a>
 
-                                    <a href="#" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ route('companies.edit', $company) }}" class="btn btn-sm btn-outline-primary">
                                         Editar
                                     </a>
                                 </td>

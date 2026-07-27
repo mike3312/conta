@@ -41,3 +41,16 @@ const renderDashboardChart = () => {
 
 document.addEventListener('DOMContentLoaded', renderDashboardChart);
 document.addEventListener('livewire:navigated', renderDashboardChart);
+
+document.addEventListener('submit', event => {
+    const form = event.target.closest('[data-loading-form]');
+    if (!form) return;
+
+    const button = form.querySelector('[data-loading-button]');
+    if (!button) return;
+
+    button.disabled = true;
+    button.querySelector('[data-loading-spinner]')?.classList.remove('d-none');
+    const label = button.querySelector('[data-loading-label]');
+    if (label && button.dataset.loadingText) label.textContent = button.dataset.loadingText;
+});

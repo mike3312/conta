@@ -10,12 +10,19 @@ use App\Models\Account;
 use App\Models\AccountingPeriod;
 use App\Models\Company;
 use App\Models\JournalEntryLine;
+use App\Services\Reports\AccountingExcelExporter;
+use App\Services\Reports\AccountingPdfExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class IncomeStatementController extends Controller
 {
+    public function __construct(
+        private readonly AccountingPdfExporter $pdfExporter,
+        private readonly AccountingExcelExporter $excelExporter,
+    ) {}
+
     public function index(Request $request)
     {
         $companyId = (int) session('company_id');
@@ -111,6 +118,29 @@ class IncomeStatementController extends Controller
             'resultType' => $this->resultType($resultCents),
             'hasInformation' => $incomeAccounts->isNotEmpty() || $expenseAccounts->isNotEmpty(),
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+
+        return $this->pdfExporter->download('accounting.income_statement.exports.pdf', 'estado-resultados', $company, $this->index($request)->getData(), now($company->timezone));
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+
+        return $this->excelExporter->incomeStatement($company, $this->index($request)->getData(), now($company->timezone));
+    }
+
+    private function activeCompany(Request $request): ?Company
+    {
+        $companyId = (int) session('company_id');
+
+        return $companyId ? $request->user()->companies()->active()->wherePivot('is_active', true)->whereKey($companyId)->first() : null;
     }
 
     private function movementTotalsQuery(int $companyId, array $filters)

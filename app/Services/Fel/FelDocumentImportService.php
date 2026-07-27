@@ -9,6 +9,7 @@ use App\Enums\FelFiscalStatus;
 use App\Enums\FelImportBatchStatus;
 use App\Enums\FelImportRowStatus;
 use App\Enums\FelTaxSourceLevel;
+use App\Exceptions\FelImportException;
 use App\Models\Company;
 use App\Models\FelDocument;
 use App\Models\FelImportBatch;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Throwable;
+use UnexpectedValueException;
+use ValueError;
 
 class FelDocumentImportService
 {
@@ -29,7 +32,7 @@ class FelDocumentImportService
     {
         $extension = strtolower($file->getClientOriginalExtension());
         $source = match ($extension) {
-            'xml' => FelDocumentSourceType::XML, 'zip' => FelDocumentSourceType::ZIP_XML, 'csv' => FelDocumentSourceType::CSV, 'xls', 'xlsx' => FelDocumentSourceType::EXCEL, default => throw new InvalidArgumentException('Formato no admitido.')
+            'xml' => FelDocumentSourceType::XML, 'zip' => FelDocumentSourceType::ZIP_XML, 'csv' => FelDocumentSourceType::CSV, 'xls', 'xlsx' => FelDocumentSourceType::EXCEL, default => throw new FelImportException('FEL-UPLOAD-VALIDATION', 'upload_validation', 'Formato no admitido.')
         };
 
         Log::info('FEL import started', [
@@ -43,7 +46,7 @@ class FelDocumentImportService
         try {
             $stored = $file->storeAs($this->directory($company), bin2hex(random_bytes(12)).'.'.$extension, config('fel.disk'));
             if (! $stored) {
-                throw new InvalidArgumentException('No se pudo guardar el archivo de forma privada.');
+                throw new FelImportException('FEL-STORAGE', 'source_storage', 'No se pudo guardar el archivo de forma privada.');
             }
 
             $batch = FelImportBatch::create([
@@ -64,29 +67,43 @@ class FelDocumentImportService
             }
 
             $this->logTechnicalError('FEL import could not be initialized', $exception, [
+                'batch_id' => null,
+                'tenant_id' => $company->tenant_id,
                 'company_id' => $company->id,
                 'user_id' => $user->id,
+                'source_filename' => basename($file->getClientOriginalName()),
+                'file_type' => $extension,
                 'source_type' => $source->value,
             ]);
 
-            throw new InvalidArgumentException('No se pudo iniciar la importación FEL. Intente nuevamente.', previous: $exception);
+            throw $this->diagnostic($exception, 'FEL-STORAGE', 'source_storage', 'No se pudo iniciar la importación FEL. Intente nuevamente.');
         }
 
         try {
+            try {
+                $processingPath = Storage::disk(config('fel.disk'))->path($stored);
+            } catch (Throwable $exception) {
+                throw new FelImportException('FEL-STORAGE', 'source_storage', 'No se pudo abrir el archivo privado almacenado.', $exception);
+            }
+            if (! is_file($processingPath) || ! is_readable($processingPath)) {
+                throw new FelImportException('FEL-STORAGE', 'source_storage', 'El archivo privado almacenado no está disponible para procesamiento.');
+            }
+
             match ($extension) {
-                'xml' => $this->processXml($batch, $file->getRealPath(), $file->getClientOriginalName(), $source, $company, $user),
-                'zip' => $this->processZip($batch, $file->getRealPath(), $source, $company, $user),
-                'xls', 'xlsx', 'csv' => $this->processTable($batch, $file->getRealPath(), $file->getClientOriginalName(), $extension, $source, $company, $user),
+                'xml' => $this->processXml($batch, $processingPath, $file->getClientOriginalName(), $source, $company, $user),
+                'zip' => $this->processZip($batch, $processingPath, $source, $company, $user),
+                'xls', 'xlsx', 'csv' => $this->processTable($batch, $processingPath, $file->getClientOriginalName(), $extension, $source, $company, $user),
             };
             $batch->refresh();
             $batch->update(['status' => $batch->failed_records ? FelImportBatchStatus::COMPLETED_WITH_ERRORS : FelImportBatchStatus::COMPLETED, 'finished_at' => now()]);
         } catch (Throwable $exception) {
-            $this->logTechnicalError('FEL import failed', $exception, $this->batchContext($batch));
+            $diagnostic = $this->diagnostic($exception, 'FEL-UNKNOWN', 'batch_processing', 'No se pudo completar el lote FEL.');
+            $this->logTechnicalError('FEL import failed', $diagnostic, $this->batchContext($batch));
 
             try {
                 $batch->update(['status' => FelImportBatchStatus::FAILED, 'failed_records' => max(1, $batch->failed_records), 'finished_at' => now()]);
-                if ($batch->total_records === 0) {
-                    $this->row($batch, ['source_filename' => basename($file->getClientOriginalName()), 'status' => FelImportRowStatus::FAILED, 'message' => $this->safeMessage($exception)]);
+                if ((int) $batch->total_records === 0) {
+                    $this->row($batch, ['source_filename' => basename($file->getClientOriginalName()), 'status' => FelImportRowStatus::FAILED, 'error_code' => $diagnostic->errorCode, 'processing_stage' => $diagnostic->stage, 'message' => $diagnostic->getMessage()]);
                 }
             } catch (Throwable $statusException) {
                 $this->logTechnicalError('FEL failed batch status could not be persisted', $statusException, $this->batchContext($batch));
@@ -120,40 +137,36 @@ class FelDocumentImportService
                 ...$this->batchContext($batch),
                 'xml_files' => ($batch->fresh() ?? $batch)->total_files,
             ]);
+        } catch (FelImportException $exception) {
+            $this->logTechnicalError('FEL ZIP rejected archive', $exception, $this->batchContext($batch));
+
+            throw $exception;
         } catch (InvalidArgumentException $exception) {
             Log::warning('FEL ZIP parser rejected archive', [
                 ...$this->batchContext($batch),
                 'reason' => $exception->getMessage(),
             ]);
 
-            throw $exception;
+            throw new FelImportException('FEL-ZIP-EXTRACT', 'zip_extract', $exception->getMessage(), $exception);
         } catch (Throwable $exception) {
             $this->logTechnicalError('FEL ZIP parser failed', $exception, $this->batchContext($batch));
 
-            throw new InvalidArgumentException('No se pudo procesar el archivo ZIP.', previous: $exception);
+            throw new FelImportException('FEL-ZIP-EXTRACT', 'zip_extract', 'No se pudo procesar el archivo ZIP.', $exception);
         }
     }
 
     private function processXml(FelImportBatch $batch, string $path, string $name, FelDocumentSourceType $source, Company $company, User $user): void
     {
         $batch->increment('total_records');
-        if ($batch->total_files === 0) {
+        if ((int) $batch->total_files === 0) {
             $batch->update(['total_files' => 1]);
         }
         try {
             $data = $this->xml->parse($path);
-        } catch (InvalidArgumentException $exception) {
-            Log::warning('FEL XML parser error', [
-                ...$this->batchContext($batch),
-                'exception' => $exception::class,
-                'reason' => $this->safeMessage($exception),
-            ]);
-            $this->recordFailure($batch, $name, $exception);
-
-            return;
         } catch (Throwable $exception) {
-            $this->logTechnicalError('FEL XML parser failed', $exception, $this->batchContext($batch));
-            $this->recordFailure($batch, $name, $exception);
+            $diagnostic = $this->diagnostic($exception, 'FEL-XML-PARSE', 'xml_parse', 'No se pudo interpretar el XML.');
+            $this->logTechnicalError('FEL XML parser failed', $diagnostic, [...$this->batchContext($batch), 'source_filename' => basename($name)]);
+            $this->recordFailure($batch, $name, $diagnostic);
 
             return;
         }
@@ -162,8 +175,11 @@ class FelDocumentImportService
             $this->persist($batch, $data, $source, FelDocumentDataLevel::FULL_DETAIL, $company, $user, ['source_filename' => basename($name)], $path);
             Log::info('FEL XML processed', $this->batchContext($batch));
         } catch (Throwable $exception) {
-            $this->logTechnicalError('FEL XML persistence failed', $exception, $this->batchContext($batch));
-            $this->recordFailure($batch, $name, $exception);
+            $diagnostic = $this->diagnostic($exception, 'FEL-UNKNOWN', 'xml_persistence', 'No se pudo guardar el documento XML.');
+            $this->logTechnicalError('FEL XML persistence failed', $diagnostic, [...$this->batchContext($batch), 'source_filename' => basename($name)]);
+            $this->recordFailure($batch, $name, $diagnostic, [
+                'authorization_uuid' => $this->uuid(data_get($data, 'certification.authorization_uuid')),
+            ]);
         }
     }
 
@@ -179,16 +195,27 @@ class FelDocumentImportService
                 try {
                     $this->persist($batch, $this->tableData($entry['data']), $source, FelDocumentDataLevel::SUMMARY, $company, $user, ['source_filename' => basename($name), 'sheet_name' => $entry['sheet_name'], 'row_number' => $entry['row_number'], 'raw_data' => $this->safeRaw($entry['data'])]);
                 } catch (Throwable $exception) {
-                    $this->logTechnicalError('FEL spreadsheet row persistence failed', $exception, [
+                    $diagnostic = $this->diagnostic($exception, 'FEL-EXCEL-ROW', 'spreadsheet_row', 'La fila no contiene datos FEL válidos.');
+                    $this->logTechnicalError('FEL spreadsheet row persistence failed', $diagnostic, [
                         ...$this->batchContext($batch),
                         'row_number' => $entry['row_number'],
+                        'sheet_name' => $entry['sheet_name'],
                     ]);
-                    $this->recordFailure($batch, $name, $exception, [
+                    $this->recordFailure($batch, $name, $diagnostic, [
                         'sheet_name' => $entry['sheet_name'],
                         'row_number' => $entry['row_number'],
+                        'authorization_uuid' => $this->uuid($entry['data']['authorization_uuid'] ?? null),
+                        'raw_data' => $this->safeRaw($entry['data']),
                     ]);
                 }
             }
+        } catch (FelImportException $exception) {
+            $this->logTechnicalError('FEL spreadsheet parser rejected file', $exception, [
+                ...$this->batchContext($batch),
+                'format' => $extension,
+            ]);
+
+            throw $exception;
         } catch (InvalidArgumentException $exception) {
             Log::warning('FEL spreadsheet parser rejected file', [
                 ...$this->batchContext($batch),
@@ -196,14 +223,14 @@ class FelDocumentImportService
                 'reason' => $exception->getMessage(),
             ]);
 
-            throw $exception;
+            throw new FelImportException('FEL-EXCEL-READ', 'spreadsheet_read', $exception->getMessage(), $exception);
         } catch (Throwable $exception) {
             $this->logTechnicalError('FEL spreadsheet parser failed', $exception, [
                 ...$this->batchContext($batch),
                 'format' => $extension,
             ]);
 
-            throw new InvalidArgumentException('No se pudo procesar el archivo tabular.', previous: $exception);
+            throw new FelImportException('FEL-EXCEL-READ', 'spreadsheet_read', 'No se pudo procesar el archivo tabular.', $exception);
         }
 
         Log::info('FEL Excel/CSV processed', [
@@ -218,10 +245,18 @@ class FelDocumentImportService
         $originalUuid = data_get($data, 'certification.authorization_uuid');
         $uuid = $this->uuid($originalUuid);
         if (! $uuid) {
-            throw new InvalidArgumentException('El documento no contiene un número de autorización válido.');
+            throw new FelImportException(
+                $level === FelDocumentDataLevel::FULL_DETAIL ? 'FEL-XML-UUID' : 'FEL-EXCEL-ROW',
+                $level === FelDocumentDataLevel::FULL_DETAIL ? 'xml_uuid' : 'spreadsheet_row',
+                'El documento no contiene un número de autorización válido.',
+            );
         }
         if (! data_get($data, 'general.issued_at') || ! data_get($data, 'general.dte_type') || ! is_numeric(data_get($data, 'totals.grand_total'))) {
-            throw new InvalidArgumentException('El documento no contiene fecha, tipo DTE o gran total válidos.');
+            throw new FelImportException(
+                $level === FelDocumentDataLevel::FULL_DETAIL ? 'FEL-XML-DATA' : 'FEL-EXCEL-ROW',
+                $level === FelDocumentDataLevel::FULL_DETAIL ? 'xml_data' : 'spreadsheet_row',
+                'El documento no contiene fecha, tipo DTE o gran total válidos.',
+            );
         }
         $existing = FelDocument::where('company_id', $company->id)->where('authorization_uuid', $uuid)->first();
         if ($existing && ($existing->data_level === FelDocumentDataLevel::FULL_DETAIL || $level === FelDocumentDataLevel::SUMMARY)) {
@@ -235,7 +270,9 @@ class FelDocumentImportService
 
             return;
         }
-        $classification = $this->classifier->classify($data, $company->tax_id);
+        // New imports are always classified with the latest persisted company NIT.
+        $currentCompanyTaxId = Company::query()->whereKey($company->id)->value('tax_id');
+        $classification = $this->classifier->classify($data, $currentCompanyTaxId);
         $voided = $this->isVoided($data);
         $status = $voided ? FelDocumentStatus::OBSERVED : FelDocumentStatus::PENDING;
         if ($classification['missing_company_tax_id']) {
@@ -246,7 +283,7 @@ class FelDocumentImportService
             $storedXml = $this->directory($company).'/'.$uuid.'.xml';
             $contents = file_get_contents($xmlPath);
             if ($contents === false || ! Storage::disk(config('fel.disk'))->put($storedXml, $contents)) {
-                throw new InvalidArgumentException('No se pudo conservar el XML original.');
+                throw new FelImportException('FEL-STORAGE', 'xml_storage', 'No se pudo conservar el XML original.');
             }
         }
         try {
@@ -328,12 +365,15 @@ class FelDocumentImportService
 
     private function recordFailure(FelImportBatch $batch, string $sourceName, Throwable $exception, array $row = []): void
     {
+        $diagnostic = $this->diagnostic($exception, 'FEL-UNKNOWN', 'unknown', 'No se pudo procesar este documento.');
         $batch->increment('failed_records');
         $this->row($batch, [
             'source_filename' => basename($sourceName),
             ...$row,
             'status' => FelImportRowStatus::FAILED,
-            'message' => $this->safeMessage($exception),
+            'error_code' => $diagnostic->errorCode,
+            'processing_stage' => $diagnostic->stage,
+            'message' => $diagnostic->getMessage(),
         ]);
     }
 
@@ -341,24 +381,47 @@ class FelDocumentImportService
     {
         return [
             'batch_id' => $batch->id,
+            'tenant_id' => $batch->tenant_id,
             'company_id' => $batch->company_id,
+            'source_filename' => $batch->original_filename,
+            'file_type' => strtolower(pathinfo($batch->original_filename, PATHINFO_EXTENSION)),
             'source_type' => $batch->source_type->value,
         ];
     }
 
     private function logTechnicalError(string $message, Throwable $exception, array $context): void
     {
-        $context['exception'] = $exception::class;
+        $technical = $exception instanceof FelImportException && $exception->getPrevious()
+            ? $exception->getPrevious()
+            : $exception;
+        $query = $technical instanceof QueryException ? $technical : null;
+        $context += [
+            'error_code' => $exception instanceof FelImportException ? $exception->errorCode : 'FEL-UNKNOWN',
+            'processing_stage' => $exception instanceof FelImportException ? $exception->stage : 'unknown',
+            'exception_class' => $technical::class,
+            'technical_message' => $query ? ($query->errorInfo[2] ?? 'Database query failed.') : $technical->getMessage(),
+            'exception_file' => $technical->getFile(),
+            'exception_line' => $technical->getLine(),
+            'stack_trace' => $technical->getTraceAsString(),
+            'sql_state' => $query?->errorInfo[0] ?? null,
+            'database_error_code' => $query?->errorInfo[1] ?? null,
+        ];
+        Log::error($message, $context);
+    }
 
+    private function diagnostic(Throwable $exception, string $defaultCode, string $defaultStage, string $publicMessage): FelImportException
+    {
+        if ($exception instanceof FelImportException) {
+            return $exception;
+        }
         if ($exception instanceof QueryException) {
-            $context['sql_state'] = $exception->errorInfo[0] ?? null;
-            $context['database_error_code'] = $exception->errorInfo[1] ?? null;
-            Log::error('FEL database error: '.$message, $context);
-
-            return;
+            return new FelImportException('FEL-DATABASE', 'database', 'No se pudo guardar el documento en la base de datos.', $exception);
+        }
+        if ($exception instanceof ValueError || $exception instanceof UnexpectedValueException) {
+            return new FelImportException('FEL-ENUM', 'enum_cast', 'Un valor FEL no coincide con el catálogo permitido.', $exception);
         }
 
-        Log::error($message, $context);
+        return new FelImportException($defaultCode, $defaultStage, $publicMessage, $exception);
     }
 
     private function uuid(?string $value): ?string
@@ -387,12 +450,22 @@ class FelDocumentImportService
     {
         return collect($row)
             ->except(['raw_data', 'issuer_tax_id', 'issuer_name', 'issuer_commercial_name', 'receiver_tax_id', 'receiver_name', 'certifier_tax_id', 'certifier_name'])
-            ->map(fn ($value) => is_scalar($value) ? mb_substr((string) $value, 0, 500) : $value)
+            ->map(fn ($value) => $this->safeRawValue($value))
             ->all();
     }
 
-    private function safeMessage(Throwable $e): string
+    private function safeRawValue(mixed $value): mixed
     {
-        return $e instanceof InvalidArgumentException ? $e->getMessage() : 'No se pudo procesar este documento. Consulte el registro técnico.';
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format(DATE_ATOM);
+        }
+        if (is_array($value)) {
+            return array_map(fn ($item) => $this->safeRawValue($item), $value);
+        }
+        if (is_scalar($value) || $value === null) {
+            return is_string($value) ? mb_substr($value, 0, 500) : $value;
+        }
+
+        return '[valor no serializable]';
     }
 }

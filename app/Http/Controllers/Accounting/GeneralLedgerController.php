@@ -10,14 +10,22 @@ use App\Models\Account;
 use App\Models\AccountingPeriod;
 use App\Models\Company;
 use App\Models\JournalEntryLine;
+use App\Services\Reports\AccountingExcelExporter;
+use App\Services\Reports\AccountingPdfExporter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class GeneralLedgerController extends Controller
 {
+    public function __construct(
+        private readonly AccountingPdfExporter $pdfExporter,
+        private readonly AccountingExcelExporter $excelExporter,
+    ) {}
+
     public function index(Request $request)
     {
         $companyId = (int) session('company_id');
@@ -103,26 +111,32 @@ class GeneralLedgerController extends Controller
             $accountsQuery->whereIn('id', $this->movementAccountIdsQuery($companyId, $filters));
         }
 
-        $accounts = $accountsQuery
-            ->orderBy('code')
-            ->paginate(10)
-            ->withQueryString();
+        $accountsQuery->orderBy('code');
+        $accounts = $request->attributes->getBoolean('exporting')
+            ? $accountsQuery->get()
+            : $accountsQuery->paginate(10)->withQueryString();
 
-        $accountIds = $accounts->getCollection()->pluck('id');
+        $accountCollection = $accounts instanceof LengthAwarePaginator
+            ? $accounts->getCollection()
+            : $accounts;
+        $accountIds = $accountCollection->pluck('id');
         $movements = $this->getMovements($companyId, $accountIds, $filters)
             ->groupBy('account_id');
         $previousBalances = $this->getPreviousBalances($companyId, $accountIds, $filters)
             ->keyBy('account_id');
 
-        $accounts->setCollection(
-            $accounts->getCollection()->map(
-                fn (Account $account) => $this->buildAccountLedger(
-                    $account,
-                    $movements->get($account->id, collect()),
-                    $previousBalances->get($account->id)
-                )
+        $preparedAccounts = $accountCollection->map(
+            fn (Account $account) => $this->buildAccountLedger(
+                $account,
+                $movements->get($account->id, collect()),
+                $previousBalances->get($account->id)
             )
         );
+        if ($accounts instanceof LengthAwarePaginator) {
+            $accounts->setCollection($preparedAccounts);
+        } else {
+            $accounts = $preparedAccounts;
+        }
 
         return view('accounting.general_ledger.index', [
             'ledgerAccounts' => $accounts,
@@ -131,6 +145,33 @@ class GeneralLedgerController extends Controller
             'filters' => $filters,
             'currency' => $company->currency,
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+        $request->attributes->set('exporting', true);
+        $data = $this->index($request)->getData();
+
+        return $this->pdfExporter->download('accounting.general_ledger.exports.pdf', 'libro-mayor', $company, $data, now($company->timezone), 'landscape');
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $company = $this->activeCompany($request);
+        abort_unless($company, 403);
+        $request->attributes->set('exporting', true);
+        $data = $this->index($request)->getData();
+
+        return $this->excelExporter->generalLedger($company, $data, now($company->timezone));
+    }
+
+    private function activeCompany(Request $request): ?Company
+    {
+        $companyId = (int) session('company_id');
+
+        return $companyId ? $request->user()->companies()->active()->wherePivot('is_active', true)->whereKey($companyId)->first() : null;
     }
 
     private function applyDefaultPeriod(array &$filters, Collection $periods): void

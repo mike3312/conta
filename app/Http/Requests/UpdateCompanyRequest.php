@@ -2,28 +2,30 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
+use App\Models\Company;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateCompanyRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return true;
+        $company = $this->route('company');
+        $user = $this->user();
+
+        return $company instanceof Company
+            && $user !== null
+            && (int) $company->tenant_id === (int) $user->tenant_id
+            && $user->companies()
+                ->whereKey($company->getKey())
+                ->wherePivot('is_active', true)
+                ->exists();
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
-        return [
-            //
-        ];
+        /** @var Company $company */
+        $company = $this->route('company');
+
+        return StoreCompanyRequest::companyRules($company);
     }
 }

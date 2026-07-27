@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\FelDocumentSourceType;
 use App\Enums\FelImportBatchStatus;
+use App\Exceptions\FelImportException;
 use App\Http\Requests\StoreFelImportRequest;
 use App\Models\FelImportBatch;
 use App\Services\Fel\FelDocumentImportService;
@@ -47,13 +48,25 @@ class FelImportController extends Controller
             $company = $request->user()->companies()->active()->wherePivot('is_active', true)->whereKey(session('company_id'))->firstOrFail();
             $batches = collect($request->file('files'))->map(fn ($file) => $importer->import($file, $company, $request->user()));
         } catch (Throwable $exception) {
+            $technical = $exception instanceof FelImportException && $exception->getPrevious() ? $exception->getPrevious() : $exception;
             Log::error('FEL import request failed', [
                 'company_id' => session('company_id'),
+                'tenant_id' => $request->user()->tenant_id,
                 'user_id' => $request->user()->id,
-                'exception' => $exception::class,
+                'error_code' => $exception instanceof FelImportException ? $exception->errorCode : 'FEL-UNKNOWN',
+                'processing_stage' => $exception instanceof FelImportException ? $exception->stage : 'request',
+                'exception_class' => $technical::class,
+                'technical_message' => $technical->getMessage(),
+                'exception_file' => $technical->getFile(),
+                'exception_line' => $technical->getLine(),
+                'stack_trace' => $technical->getTraceAsString(),
             ]);
 
-            return back()->withInput()->with('error', 'No se pudo iniciar la importación FEL. Intente nuevamente o consulte al administrador.');
+            $message = $exception instanceof FelImportException
+                ? '['.$exception->errorCode.'] '.$exception->getMessage()
+                : '[FEL-UNKNOWN] No se pudo iniciar la importación FEL. Intente nuevamente o consulte al administrador.';
+
+            return back()->withInput()->with('error', $message);
         }
 
         if ($batches->count() === 1) {

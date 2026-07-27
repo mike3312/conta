@@ -51,7 +51,12 @@ class FelDocumentController extends Controller
             ->when($filters['nit'] ?? null, fn ($q, $value) => $q->where(fn ($sub) => $sub->where('issuer_tax_id', 'like', '%'.$value.'%')->orWhere('receiver_tax_id', 'like', '%'.$value.'%')))
             ->when($filters['name'] ?? null, fn ($q, $value) => $q->where(fn ($sub) => $sub->where('issuer_name', 'like', '%'.$value.'%')->orWhere('receiver_name', 'like', '%'.$value.'%')));
 
-        return view('fel.documents.index', ['documents' => $query->latest('issued_at')->paginate(25)->withQueryString(), 'operationTypes' => FelOperationType::cases(), 'classifications' => FelDocumentClassification::cases(), 'statuses' => FelDocumentStatus::cases(), 'fiscalStatuses' => FelFiscalStatus::cases(), 'sourceTypes' => FelDocumentSourceType::cases(), 'dataLevels' => FelDocumentDataLevel::cases()]);
+        $activeCompanyName = $request->user()->companies()
+            ->whereKey(session('company_id'))
+            ->wherePivot('is_active', true)
+            ->value('companies.name');
+
+        return view('fel.documents.index', ['documents' => $query->latest('issued_at')->paginate(25)->withQueryString(), 'activeCompanyName' => $activeCompanyName, 'operationTypes' => FelOperationType::cases(), 'classifications' => FelDocumentClassification::cases(), 'statuses' => FelDocumentStatus::cases(), 'fiscalStatuses' => FelFiscalStatus::cases(), 'sourceTypes' => FelDocumentSourceType::cases(), 'dataLevels' => FelDocumentDataLevel::cases()]);
     }
 
     public function show(FelDocument $felDocument): View

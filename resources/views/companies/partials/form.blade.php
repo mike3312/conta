@@ -103,6 +103,7 @@
         @enderror
     </div>
 
+    @unless($editing ?? false)
     <div class="col-12">
     <hr>
 
@@ -129,8 +130,9 @@
                     las necesidades de la empresa.
                 </div>
             </div>
-
         </div>
     </div>
 </div>
+    @endunless
+
 </div>

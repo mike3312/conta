@@ -49,13 +49,21 @@
                 <input type="search" name="search" class="form-control" maxlength="255" value="{{ $filters['search'] ?? '' }}" placeholder="Buscar en la póliza o sus líneas">
             </div>
 
-            <div class="col-md-4 d-flex gap-2">
+            <div class="col-md-4 d-flex flex-wrap gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-funnel me-1"></i>Aplicar filtros
                 </button>
 
                 <a href="{{ route('accounting.daily-book.index') }}" class="btn btn-outline-secondary">
                     Limpiar filtros
+                </a>
+
+                <a href="{{ route('accounting.daily-book.export.pdf', $filters) }}" class="btn btn-outline-danger">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF
+                </a>
+
+                <a href="{{ route('accounting.daily-book.export.excel', $filters) }}" class="btn btn-outline-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
                 </a>
             </div>
         </form>
