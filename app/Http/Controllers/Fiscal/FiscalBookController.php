@@ -37,11 +37,12 @@ abstract class FiscalBookController extends Controller
     public function index(FiscalBookRequest $request): View
     {
         $company = $this->activeCompany($request);
+        $filters = $this->reportFilters($request, $company->id);
 
         return view('fiscal_documents.index', [
             ...$this->moduleData(),
             'company' => $company,
-            'report' => $this->booksService->build($company->id, $this->direction(), $request->validated(), 25),
+            'report' => $this->booksService->build($company->id, $this->direction(), $filters, 25),
             ...$this->booksService->options($company->id),
         ]);
     }
@@ -63,7 +64,7 @@ abstract class FiscalBookController extends Controller
 
         return view('fiscal_documents.show', [
             ...$this->moduleData(),
-            'document' => $this->findDocument($company->id, (int) $document)->load(['accountingPeriod', 'journalEntry', 'createdBy', 'updatedBy', 'voidedBy']),
+            'document' => $this->findDocument($company->id, (int) $document)->load(['accountingPeriod', 'journalEntry', 'createdBy', 'updatedBy', 'voidedBy', 'felDocument.importBatch']),
         ]);
     }
 
@@ -99,7 +100,7 @@ abstract class FiscalBookController extends Controller
     public function exportPdf(FiscalBookRequest $request): Response
     {
         $company = $this->activeCompany($request);
-        $report = $this->booksService->build($company->id, $this->direction(), $request->validated());
+        $report = $this->booksService->build($company->id, $this->direction(), $this->reportFilters($request, $company->id));
 
         return $this->pdfExporter->download($company, $request->user(), $this->direction(), $report, now($company->timezone));
     }
@@ -107,7 +108,7 @@ abstract class FiscalBookController extends Controller
     public function exportExcel(FiscalBookRequest $request): BinaryFileResponse
     {
         $company = $this->activeCompany($request);
-        $report = $this->booksService->build($company->id, $this->direction(), $request->validated());
+        $report = $this->booksService->build($company->id, $this->direction(), $this->reportFilters($request, $company->id));
 
         return $this->excelExporter->download($company, $request->user(), $this->direction(), $report, now($company->timezone));
     }
@@ -156,5 +157,27 @@ abstract class FiscalBookController extends Controller
             'periods' => AccountingPeriod::where('company_id', $companyId)->orderByDesc('start_date')->get(),
             'journalEntries' => JournalEntry::where('company_id', $companyId)->orderByDesc('entry_date')->limit(200)->get(),
         ];
+    }
+
+    private function reportFilters(FiscalBookRequest $request, int $companyId): array
+    {
+        $filters = $request->validated();
+        $requestedPeriod = isset($filters['accounting_period_id']) && $filters['accounting_period_id'] !== null
+            ? (int) $filters['accounting_period_id']
+            : null;
+        $periodId = $requestedPeriod ?: $this->booksService->resolveDefaultPeriodId(
+            $companyId,
+            session('fiscal_books_period_id') ? (int) session('fiscal_books_period_id') : null,
+        );
+        if ($periodId) {
+            $filters['accounting_period_id'] = $periodId;
+            session()->put('fiscal_books_period_id', $periodId);
+        } else {
+            unset($filters['accounting_period_id']);
+            session()->forget('fiscal_books_period_id');
+        }
+        $filters['review_status'] = $filters['review_status'] ?? 'APPROVED';
+
+        return $filters;
     }
 }

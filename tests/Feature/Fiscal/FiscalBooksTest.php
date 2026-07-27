@@ -15,8 +15,11 @@ use App\Models\JournalEntry;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Fiscal\FiscalBooksService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
+use OpenSpout\Reader\XLSX\Reader;
 use Tests\TestCase;
 
 class FiscalBooksTest extends TestCase
@@ -242,6 +245,136 @@ class FiscalBooksTest extends TestCase
         $this->get(route('fiscal-sales.export.excel'))->assertOk()->assertDownload();
     }
 
+    public function test_review_filters_change_visible_documents_counters_and_totals_with_voided_priority(): void
+    {
+        $approvedFel = $this->felDocument('APPROVED', 'FEL-APPROVED');
+        $observedFel = $this->felDocument('OBSERVED', 'FEL-OBSERVED');
+        $rejectedFel = $this->felDocument('REJECTED', 'FEL-REJECTED');
+        $voidedFel = $this->felDocument('APPROVED', 'FEL-VOIDED');
+
+        $this->document($this->company, FiscalDocumentDirection::PURCHASE, [
+            'fel_document_id' => $approvedFel, 'third_party_name' => 'Proveedor aprobado',
+        ]);
+        $this->document($this->company, FiscalDocumentDirection::PURCHASE, [
+            'fel_document_id' => $observedFel, 'third_party_name' => 'Proveedor observado',
+            'taxable_amount' => '200.00', 'vat_amount' => '24.00', 'total_amount' => '224.00',
+        ]);
+        $this->document($this->company, FiscalDocumentDirection::PURCHASE, [
+            'fel_document_id' => $rejectedFel, 'third_party_name' => 'Proveedor rechazado',
+            'taxable_amount' => '300.00', 'vat_amount' => '36.00', 'total_amount' => '336.00',
+        ]);
+        $this->document($this->company, FiscalDocumentDirection::PURCHASE, [
+            'fel_document_id' => $voidedFel, 'third_party_name' => 'Proveedor anulado',
+            'taxable_amount' => '400.00', 'vat_amount' => '48.00', 'total_amount' => '448.00',
+            'status' => FiscalDocumentStatus::VOIDED,
+        ]);
+
+        $service = app(FiscalBooksService::class);
+        $approved = $service->build($this->company->id, FiscalDocumentDirection::PURCHASE, ['review_status' => 'APPROVED']);
+        $observed = $service->build($this->company->id, FiscalDocumentDirection::PURCHASE, ['review_status' => 'OBSERVED']);
+        $rejected = $service->build($this->company->id, FiscalDocumentDirection::PURCHASE, ['review_status' => 'REJECTED']);
+        $voided = $service->build($this->company->id, FiscalDocumentDirection::PURCHASE, ['review_status' => 'VOIDED']);
+
+        $this->assertSame(['ALL' => 4, 'APPROVED' => 1, 'OBSERVED' => 1, 'REJECTED' => 1, 'VOIDED' => 1], $approved['statusCounts']);
+        $this->assertSame('112.00', $approved['totals']['total_amount']);
+        $this->assertSame('224.00', $observed['totals']['total_amount']);
+        $this->assertSame('336.00', $rejected['totals']['total_amount']);
+        $this->assertSame('0.00', $voided['totals']['total_amount']);
+        $this->assertSame(1, $voided['shownCount']);
+        $this->assertSame(0, $voided['count']);
+
+        $this->asCompany($this->company)->get(route('fiscal-purchases.index', ['review_status' => 'OBSERVED']))
+            ->assertOk()
+            ->assertSee('Proveedor observado')
+            ->assertDontSee('Proveedor aprobado')
+            ->assertDontSee('Proveedor anulado')
+            ->assertSee('Documentos mostrados:')
+            ->assertSee('Q 224.00');
+    }
+
+    public function test_default_period_is_selected_and_shared_between_purchase_and_sales_books(): void
+    {
+        $january = AccountingPeriod::create([
+            'company_id' => $this->company->id, 'name' => 'Enero 2026', 'start_date' => '2026-01-01',
+            'end_date' => '2026-01-31', 'status' => AccountingPeriodStatus::CLOSED,
+        ]);
+        $july = AccountingPeriod::create([
+            'company_id' => $this->company->id, 'name' => 'Julio 2026', 'start_date' => '2026-07-01',
+            'end_date' => '2026-07-31', 'status' => AccountingPeriodStatus::OPEN,
+        ]);
+        $this->document($this->company, FiscalDocumentDirection::SALE, [
+            'document_date' => '2026-07-20', 'accounting_period_id' => $july->id,
+        ]);
+
+        $this->asCompany($this->company)->get(route('fiscal-purchases.index'))
+            ->assertOk()
+            ->assertSessionHas('fiscal_books_period_id', $july->id)
+            ->assertSee('Julio 2026')
+            ->assertSee('01/07/2026 al 31/07/2026');
+
+        $this->get(route('fiscal-sales.index'))
+            ->assertOk()
+            ->assertSessionHas('fiscal_books_period_id', $july->id)
+            ->assertSee('Julio 2026');
+
+        $this->get(route('fiscal-sales.index', ['accounting_period_id' => $january->id]))
+            ->assertOk()
+            ->assertSessionHas('fiscal_books_period_id', $january->id)
+            ->assertSee('Enero 2026');
+
+        $this->get(route('fiscal-purchases.index'))
+            ->assertOk()
+            ->assertSessionHas('fiscal_books_period_id', $january->id)
+            ->assertSee('Enero 2026');
+    }
+
+    public function test_pdf_view_and_excel_include_report_metadata_and_exact_review_filter(): void
+    {
+        $period = AccountingPeriod::create([
+            'company_id' => $this->company->id, 'name' => 'Julio 2026', 'start_date' => '2026-07-01',
+            'end_date' => '2026-07-31', 'status' => AccountingPeriodStatus::OPEN,
+        ]);
+        $approved = $this->document($this->company, FiscalDocumentDirection::PURCHASE, [
+            'fel_document_id' => $this->felDocument('APPROVED', 'EXPORT-APPROVED'),
+            'accounting_period_id' => $period->id, 'third_party_name' => 'Proveedor aprobado exportación',
+        ]);
+        $observed = $this->document($this->company, FiscalDocumentDirection::PURCHASE, [
+            'fel_document_id' => $this->felDocument('OBSERVED', 'EXPORT-OBSERVED'),
+            'accounting_period_id' => $period->id, 'third_party_name' => 'Proveedor observado exportación',
+            'taxable_amount' => '200.00', 'vat_amount' => '24.00', 'total_amount' => '224.00',
+        ]);
+        $filters = ['accounting_period_id' => $period->id, 'review_status' => 'OBSERVED'];
+        $report = app(FiscalBooksService::class)->build($this->company->id, FiscalDocumentDirection::PURCHASE, $filters);
+        $generatedAt = CarbonImmutable::parse('2026-07-27 15:54:21');
+
+        $html = view('fiscal_documents.exports.pdf', [
+            'company' => $this->company,
+            'user' => $this->user,
+            'direction' => FiscalDocumentDirection::PURCHASE,
+            'report' => $report,
+            'generatedAt' => $generatedAt,
+        ])->render();
+        $this->assertStringContainsString($this->company->legal_name, $html);
+        $this->assertStringContainsString('Julio 2026', $html);
+        $this->assertStringContainsString('01/07/2026 al 31/07/2026', $html);
+        $this->assertStringContainsString('Observados', $html);
+        $this->assertStringContainsString('27/07/2026 15:54:21', $html);
+        $this->assertStringContainsString($this->user->name, $html);
+        $this->assertStringContainsString($observed->third_party_name, $html);
+        $this->assertStringNotContainsString($approved->third_party_name, $html);
+
+        $rows = $this->xlsxRows($this->asCompany($this->company)->get(route('fiscal-purchases.export.excel', $filters)));
+        $values = array_merge(...$rows);
+        $this->assertContains($this->company->legal_name, $values);
+        $this->assertContains('Libro de Compras', $values);
+        $this->assertContains('Julio 2026', $values);
+        $this->assertContains('01/07/2026 al 31/07/2026', $values);
+        $this->assertContains('Observados', $values);
+        $this->assertContains($this->user->name, $values);
+        $this->assertContains($observed->third_party_name, $values);
+        $this->assertNotContains($approved->third_party_name, $values);
+    }
+
     public function test_fiscal_documents_never_create_journal_entries(): void
     {
         $before = DB::table('journal_entries')->count();
@@ -278,6 +411,51 @@ class FiscalBooksTest extends TestCase
             'grants_tax_credit' => $direction === FiscalDocumentDirection::PURCHASE, 'is_small_taxpayer' => false,
             'status' => FiscalDocumentStatus::ACTIVE, 'created_by' => $this->user->id,
         ], $overrides));
+    }
+
+    private function felDocument(string $status, string $uuid): int
+    {
+        return DB::table('fel_documents')->insertGetId([
+            'tenant_id' => $this->tenant->id,
+            'company_id' => $this->company->id,
+            'authorization_uuid' => $uuid,
+            'dte_type' => 'FACT',
+            'currency' => 'GTQ',
+            'source_type' => 'XML',
+            'data_level' => 'FULL_DETAIL',
+            'operation_type' => 'PURCHASE',
+            'classification' => 'GENERAL_PURCHASE',
+            'status' => $status,
+            'fiscal_status' => 'ACTIVE',
+            'issued_at' => '2026-07-15 10:00:00',
+            'requires_tax_review' => false,
+            'requires_accounting_review' => true,
+            'signature_count' => 1,
+            'imported_by' => $this->user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function xlsxRows(TestResponse $response): array
+    {
+        $response->assertOk()->assertDownload();
+        $path = $response->baseResponse->getFile()->getPathname();
+        $reader = new Reader;
+        $reader->open($path);
+        $rows = [];
+
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $rows[] = $row->toArray();
+            }
+            break;
+        }
+
+        $reader->close();
+        @unlink($path);
+
+        return $rows;
     }
 
     private function company(string $name, string $taxId): Company

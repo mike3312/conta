@@ -40,7 +40,7 @@ class FelDocumentController extends Controller
             'name' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $query = FelDocument::forActiveCompany();
+        $query = FelDocument::forActiveCompany()->where('tenant_id', $request->user()->tenant_id);
         foreach (['dte_type', 'operation_type', 'classification', 'status', 'fiscal_status', 'source_type', 'data_level'] as $field) {
             $query->when($filters[$field] ?? null, fn ($q, $value) => $q->where($field, $value));
         }
@@ -53,6 +53,7 @@ class FelDocumentController extends Controller
 
         $activeCompanyName = $request->user()->companies()
             ->whereKey(session('company_id'))
+            ->where('companies.tenant_id', $request->user()->tenant_id)
             ->wherePivot('is_active', true)
             ->value('companies.name');
 
@@ -63,7 +64,7 @@ class FelDocumentController extends Controller
     {
         $this->authorizeDocument($felDocument);
 
-        return view('fel.documents.show', ['document' => $felDocument->load(['items', 'taxes', 'importedBy:id,name', 'reviewedBy:id,name'])]);
+        return view('fel.documents.show', ['document' => $felDocument->load(['items', 'taxes', 'importedBy:id,name', 'reviewedBy:id,name', 'fiscalDocument'])]);
     }
 
     public function approve(Request $request, FelDocument $felDocument): RedirectResponse
@@ -146,6 +147,12 @@ class FelDocumentController extends Controller
 
     private function authorizeDocument(FelDocument $document): void
     {
-        abort_unless((int) $document->company_id === (int) session('company_id'), 403);
+        $user = request()->user();
+        abort_unless(
+            (int) $document->company_id === (int) session('company_id')
+            && (int) $document->tenant_id === (int) $user->tenant_id
+            && $user->companies()->whereKey($document->company_id)->wherePivot('is_active', true)->exists(),
+            403,
+        );
     }
 }

@@ -19,7 +19,7 @@ use Throwable;
 
 class FiscalBookExcelExporter
 {
-    private const HEADER_ROW = 8;
+    private const HEADER_ROW = 14;
 
     public function download(Company $company, User $user, FiscalDocumentDirection $direction, array $report, CarbonInterface $generatedAt): BinaryFileResponse
     {
@@ -65,9 +65,27 @@ class FiscalBookExcelExporter
         $total = (new Style)->setFontBold()->setBackgroundColor('D9EAF7');
         $totalMoney = (new Style)->setFontBold()->setBackgroundColor('D9EAF7')->setFormat('Q #,##0.00')->setCellAlignment(CellAlignment::RIGHT);
 
-        foreach ([['Empresa', $company->name], ['NIT', $company->tax_id], [$title], ['Período / rango', $report['periodDescription']], ['Generado', $generatedAt->format('d/m/Y H:i:s')], ['Usuario', $user->name], []] as $index => $values) {
-            $writer->addRow(Row::fromValues($values, $index === 2 ? $titleStyle : ($index < 2 || $index === 3 || $index === 4 || $index === 5 ? $label : null)));
+        $metadata = [
+            ['Empresa', $company->legal_name ?: $company->name],
+            ['NIT', $company->tax_id],
+            ['Libro', $title],
+            ['Período', $report['periodName']],
+            ['Rango', $report['periodRange']],
+            ['Estado', $report['reviewStatusLabel']],
+            ['Generado', $generatedAt->format('d/m/Y H:i:s')],
+            ['Por', $user->name],
+            ['Cantidad de documentos', $report['shownCount']],
+            ['Subtotal / base imponible', (float) $report['totals']['taxable_amount']],
+            ['IVA', (float) $report['totals']['vat_amount']],
+            ['Total', (float) $report['totals']['total_amount']],
+            [],
+        ];
+        foreach ($metadata as $index => $values) {
+            $rowStyle = $index === 2 ? $titleStyle : ($index < 12 ? $label : null);
+            $cellStyles = in_array($index, [9, 10, 11], true) ? [1 => $money] : [];
+            $writer->addRow(Row::fromValuesWithStyles($values, $rowStyle, $cellStyles));
         }
+
         $writer->addRow(Row::fromValues(['Fecha', 'Tipo', 'Serie', 'Número', 'UUID', 'NIT', 'Tercero', 'Categoría', 'Base imponible', 'Exento', 'No afecto', 'IVA', 'Otros impuestos', 'Total', 'Estado'], $header));
         $row = self::HEADER_ROW;
         foreach ($report['documents'] as $document) {
@@ -76,12 +94,25 @@ class FiscalBookExcelExporter
                 $document->document_number, $document->authorization_uuid, $document->third_party_tax_id,
                 $document->third_party_name, $document->tax_category->label(), (float) $document->taxable_amount,
                 (float) $document->exempt_amount, (float) $document->non_taxable_amount, (float) $document->vat_amount,
-                (float) $document->other_taxes_amount, (float) $document->total_amount, $document->status->label(),
+                (float) $document->other_taxes_amount, (float) $document->total_amount, $this->reviewStatusLabel($document),
             ], null, [0 => $date, 8 => $money, 9 => $money, 10 => $money, 11 => $money, 12 => $money, 13 => $money]));
             $row++;
         }
         $sheet->setAutoFilter(new AutoFilter(0, self::HEADER_ROW, 14, max(self::HEADER_ROW, $row)));
         $totals = $report['totals'];
         $writer->addRow(Row::fromValuesWithStyles([null, null, null, null, null, null, null, 'Totales', (float) $totals['taxable_amount'], (float) $totals['exempt_amount'], (float) $totals['non_taxable_amount'], (float) $totals['vat_amount'], (float) $totals['other_taxes_amount'], (float) $totals['total_amount']], $total, [8 => $totalMoney, 9 => $totalMoney, 10 => $totalMoney, 11 => $totalMoney, 12 => $totalMoney, 13 => $totalMoney]));
+    }
+
+    private function reviewStatusLabel(mixed $document): string
+    {
+        if ($document->status->value === 'VOIDED') {
+            return 'Anulado';
+        }
+
+        return match ($document->felDocument?->status?->value) {
+            'OBSERVED' => 'Observado',
+            'REJECTED' => 'Rechazado',
+            default => 'Aprobado',
+        };
     }
 }

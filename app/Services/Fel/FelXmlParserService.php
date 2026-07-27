@@ -3,6 +3,7 @@
 namespace App\Services\Fel;
 
 use App\Exceptions\FelImportException;
+use App\Support\FelAuthorizationNormalizer;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
@@ -10,6 +11,13 @@ use DOMXPath;
 
 class FelXmlParserService
 {
+    private readonly FelAuthorizationNormalizer $authorizations;
+
+    public function __construct(?FelAuthorizationNormalizer $authorizations = null)
+    {
+        $this->authorizations = $authorizations ?? new FelAuthorizationNormalizer;
+    }
+
     public function parse(string $path): array
     {
         if (! class_exists(DOMDocument::class) || ! function_exists('libxml_use_internal_errors')) {
@@ -48,6 +56,19 @@ class FelXmlParserService
         $attribute = fn (?DOMNode $node, string $name) => $node instanceof DOMElement ? trim($node->getAttribute($name)) ?: null : null;
         $text = fn (?DOMNode $node) => $node ? trim($node->textContent) ?: null : null;
 
+        $cancellation = $xpath->query('//*[local-name()="DatosGenerales" and @NumeroDocumentoAAnular]')->item(0);
+        if ($cancellation instanceof DOMElement) {
+            return [
+                'is_cancellation' => true,
+                'cancellation' => [
+                    'authorization_uuid' => $attribute($cancellation, 'NumeroDocumentoAAnular'),
+                    'issued_at' => $attribute($cancellation, 'FechaEmisionDocumentoAnular'),
+                    'voided_at' => $attribute($cancellation, 'FechaHoraAnulacion'),
+                    'reason' => $attribute($cancellation, 'MotivoAnulacion'),
+                ],
+            ];
+        }
+
         $general = $first('DatosGenerales');
         $issuer = $first('Emisor');
         $receiver = $first('Receptor');
@@ -69,7 +90,10 @@ class FelXmlParserService
                 'gross_price' => $this->number($text($first('Precio', $itemNode))),
                 'discount' => $this->number($text($first('Descuento', $itemNode))),
                 'other_discount' => 0,
-                'taxable_amount' => array_sum(array_column($lineTaxes, 'taxable_amount')),
+                'taxable_amount' => array_sum(array_map(
+                    fn (array $tax) => $this->normalize($tax['tax_name']) === 'IVA' ? $tax['taxable_amount'] : 0,
+                    $lineTaxes,
+                )),
                 'tax_amount' => array_sum(array_column($lineTaxes, 'tax_amount')),
                 'total' => $this->number($text($first('Total', $itemNode))),
                 'taxes' => $lineTaxes,
@@ -97,8 +121,8 @@ class FelXmlParserService
             $complements[] = ['attributes' => $this->attributes($node), 'content' => $this->nodeArray($node)];
         }
 
-        $uuid = strtoupper(preg_replace('/\s+/', '', (string) $text($authorization)));
-        if (! preg_match('/^[A-Z0-9][A-Z0-9-]{7,99}$/', $uuid)) {
+        $uuid = $this->authorizations->normalize($text($authorization));
+        if (! $uuid) {
             throw new FelImportException('FEL-XML-UUID', 'xml_uuid', 'El XML no contiene un número de autorización válido.');
         }
 

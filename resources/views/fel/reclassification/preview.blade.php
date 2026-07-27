@@ -24,6 +24,10 @@
         ['Combustibles', $summary['fuel']],
         ['Hospedajes', $summary['lodging']],
         ['Revisión fiscal requerida', $summary['tax_review_required']],
+        ['Libros que se crearían', $summary['fiscal_created'] ?? 0],
+        ['Libros que se actualizarían', $summary['fiscal_updated'] ?? 0],
+        ['Observados al sincronizar', $summary['fiscal_observed'] ?? 0],
+        ['Conflictos fiscales', $summary['fiscal_conflicts'] ?? 0],
     ] as [$label, $value])
         <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-muted">{{ $label }}</div><div class="h4 mb-0 mt-2">{{ number_format($value) }}</div></div></div></div>
     @endforeach

@@ -14,6 +14,9 @@ use App\Models\Company;
 use App\Models\FelDocument;
 use App\Models\FelImportBatch;
 use App\Models\User;
+use App\Services\Fiscal\FelFiscalDocumentSyncService;
+use App\Services\Fiscal\FiscalSyncResult;
+use App\Support\FelAuthorizationNormalizer;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +29,14 @@ use ValueError;
 
 class FelDocumentImportService
 {
-    public function __construct(private FelXmlParserService $xml, private FelExcelParserService $excel, private FelZipExtractorService $zip, private FelClassificationService $classifier) {}
+    public function __construct(
+        private FelXmlParserService $xml,
+        private FelExcelParserService $excel,
+        private FelZipExtractorService $zip,
+        private FelClassificationService $classifier,
+        private FelFiscalDocumentSyncService $fiscalSync,
+        private FelAuthorizationNormalizer $authorizations,
+    ) {}
 
     public function import(UploadedFile $file, Company $company, User $user): FelImportBatch
     {
@@ -171,6 +181,12 @@ class FelDocumentImportService
             return;
         }
 
+        if (($data['is_cancellation'] ?? false) === true) {
+            $this->processCancellation($batch, $data, $name, $company, $user);
+
+            return;
+        }
+
         try {
             $this->persist($batch, $data, $source, FelDocumentDataLevel::FULL_DETAIL, $company, $user, ['source_filename' => basename($name)], $path);
             Log::info('FEL XML processed', $this->batchContext($batch));
@@ -259,9 +275,21 @@ class FelDocumentImportService
             );
         }
         $existing = FelDocument::where('company_id', $company->id)->where('authorization_uuid', $uuid)->first();
+        if (! $existing) {
+            $existing = $this->authorizations->whereMatches(
+                FelDocument::where('company_id', $company->id),
+                'authorization_uuid',
+                $uuid,
+            )->first();
+        }
         if ($existing && ($existing->data_level === FelDocumentDataLevel::FULL_DETAIL || $level === FelDocumentDataLevel::SUMMARY)) {
+            $sync = $this->fiscalSync->syncFromFel($existing, $user);
             $batch->increment('duplicate_records');
-            $this->row($batch, [...$row, 'authorization_uuid' => $uuid, 'status' => FelImportRowStatus::DUPLICATE, 'message' => 'El documento ya existe con el mismo o mayor nivel de detalle.', 'fel_document_id' => $existing->id]);
+            if (($sync->observed() || $sync->conflict()) && $existing->reviewed_at === null) {
+                $existing->update(['status' => FelDocumentStatus::OBSERVED]);
+                $batch->increment('observed_records');
+            }
+            $this->row($batch, [...$row, 'authorization_uuid' => $uuid, 'status' => FelImportRowStatus::DUPLICATE, 'message' => 'El documento ya existe con el mismo o mayor nivel de detalle. '.$this->syncMessage($sync), 'fel_document_id' => $existing->id]);
             Log::info('FEL document duplicate detected', [
                 ...$this->batchContext($batch),
                 'document_id' => $existing->id,
@@ -302,6 +330,13 @@ class FelDocumentImportService
                     $batch->increment('successful_records');
                 }
                 $this->details($document, $data);
+                $sync = $this->fiscalSync->syncFromFel($document, $user);
+                if (($sync->observed() || $sync->conflict()) && $document->reviewed_at === null) {
+                    $document->update(['status' => FelDocumentStatus::OBSERVED]);
+                    if ($status !== FelDocumentStatus::OBSERVED) {
+                        $batch->increment('observed_records');
+                    }
+                }
                 if ($status === FelDocumentStatus::OBSERVED) {
                     $batch->increment('observed_records');
                 }
@@ -311,7 +346,7 @@ class FelDocumentImportService
                 if ($voided) {
                     $batch->increment('voided_records');
                 }
-                $this->row($batch, [...$row, 'authorization_uuid' => $uuid, 'status' => $result, 'message' => $existing ? 'El documento resumido fue enriquecido con el XML.' : ($status === FelDocumentStatus::OBSERVED ? 'Importado con observaciones para revisión.' : 'Documento importado.'), 'fel_document_id' => $document->id]);
+                $this->row($batch, [...$row, 'authorization_uuid' => $uuid, 'status' => $result, 'message' => ($existing ? 'El documento resumido fue enriquecido con el XML. ' : ($status === FelDocumentStatus::OBSERVED ? 'Importado con observaciones para revisión. ' : 'Documento importado. ')).$this->syncMessage($sync), 'fel_document_id' => $document->id]);
 
                 return [$document->id, $result];
             });
@@ -426,9 +461,75 @@ class FelDocumentImportService
 
     private function uuid(?string $value): ?string
     {
-        $value = strtoupper(preg_replace('/\s+/', '', (string) $value));
+        return $this->authorizations->normalize($value);
+    }
 
-        return preg_match('/^[A-Z0-9][A-Z0-9-]{7,99}$/', $value) ? $value : null;
+    private function processCancellation(FelImportBatch $batch, array $data, string $name, Company $company, User $user): void
+    {
+        $uuid = $this->uuid(data_get($data, 'cancellation.authorization_uuid'));
+        if (! $uuid) {
+            throw new FelImportException('FEL-XML-UUID', 'xml_cancellation', 'El XML de anulación no contiene una autorización válida.');
+        }
+
+        $document = $this->authorizations->whereMatches(
+            FelDocument::where('company_id', $company->id),
+            'authorization_uuid',
+            $uuid,
+        )->first();
+        if (! $document) {
+            $batch->increment('observed_records');
+            $this->row($batch, [
+                'source_filename' => basename($name),
+                'authorization_uuid' => $uuid,
+                'status' => FelImportRowStatus::OBSERVED,
+                'processing_stage' => 'xml_cancellation',
+                'message' => 'La anulación llegó antes que el DTE original. Se conservó como observación para conciliación posterior.',
+                'raw_data' => ['voided_at' => data_get($data, 'cancellation.voided_at')],
+            ]);
+
+            return;
+        }
+
+        DB::transaction(function () use ($document, $data, $batch, $name, $uuid, $user) {
+            $metadata = $document->metadata ?? [];
+            $metadata['cancellation'] = [
+                'received_at' => now()->toIso8601String(),
+                'reason' => data_get($data, 'cancellation.reason'),
+            ];
+            $document->update([
+                'fiscal_status' => FelFiscalStatus::VOIDED,
+                'voided_at' => data_get($data, 'cancellation.voided_at'),
+                'requires_tax_review' => true,
+                'metadata' => $metadata,
+            ]);
+            $sync = $this->fiscalSync->syncFromFel($document->refresh(), $user);
+            $batch->increment('voided_records');
+            if ($sync->observed() || $sync->conflict()) {
+                $batch->increment('observed_records');
+            }
+            $this->row($batch, [
+                'source_filename' => basename($name),
+                'authorization_uuid' => $uuid,
+                'status' => $sync->observed() || $sync->conflict() ? FelImportRowStatus::OBSERVED : FelImportRowStatus::ENRICHED,
+                'processing_stage' => 'xml_cancellation',
+                'message' => 'El DTE original fue actualizado como anulado. '.$this->syncMessage($sync),
+                'fel_document_id' => $document->id,
+            ]);
+        });
+    }
+
+    private function syncMessage(FiscalSyncResult $result): string
+    {
+        $message = match ($result->action) {
+            'CREATED' => 'Se incorporó al libro fiscal.',
+            'UPDATED' => 'Se actualizó su registro en el libro fiscal.',
+            'UNCHANGED' => 'El registro fiscal ya estaba actualizado.',
+            'CONFLICT' => 'La sincronización fiscal requiere resolver un conflicto.',
+            default => 'La sincronización fiscal quedó observada.',
+        };
+        $details = [...$result->warnings, ...$result->errors];
+
+        return $details ? $message.' '.implode(' ', $details) : $message;
     }
 
     private function isVoided(array $data): bool

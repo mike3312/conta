@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FiscalDocumentDirection;
+use App\Enums\FiscalDocumentSource;
 use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\FiscalTaxCategory;
@@ -18,7 +19,8 @@ class FiscalDocument extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'company_id', 'accounting_period_id', 'journal_entry_id', 'direction', 'document_type',
+        'company_id', 'fel_document_id', 'source', 'source_reference', 'source_metadata',
+        'accounting_period_id', 'journal_entry_id', 'direction', 'document_type',
         'tax_category', 'document_date', 'emission_date', 'received_date', 'series', 'document_number',
         'authorization_uuid', 'third_party_tax_id', 'third_party_name', 'third_party_address', 'currency',
         'exchange_rate', 'taxable_amount', 'exempt_amount', 'non_taxable_amount', 'vat_amount',
@@ -31,6 +33,8 @@ class FiscalDocument extends Model
         'document_type' => FiscalDocumentType::class,
         'tax_category' => FiscalTaxCategory::class,
         'status' => FiscalDocumentStatus::class,
+        'source' => FiscalDocumentSource::class,
+        'source_metadata' => 'array',
         'document_date' => 'date',
         'emission_date' => 'date',
         'received_date' => 'date',
@@ -97,6 +101,11 @@ class FiscalDocument extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function felDocument(): BelongsTo
+    {
+        return $this->belongsTo(FelDocument::class);
     }
 
     public function accountingPeriod(): BelongsTo

@@ -22,6 +22,7 @@ class SetCompany
 
         $activeCompanies = $user->companies()
             ->active()
+            ->where('companies.tenant_id', $user->tenant_id)
             ->wherePivot('is_active', true)
             ->orderBy('companies.id')
             ->get(['companies.id']);

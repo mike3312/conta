@@ -3,22 +3,55 @@
 @section('content')
 <x-page-header :title="$bookTitle" subtitle="Registro fiscal independiente · Empresa activa: {{ $company->name }}" icon="bi-journal-check">
     <x-slot:actions>
-        <x-action-button :href="route($routePrefix.'.export.pdf', request()->query())" icon="bi-file-earmark-pdf" variant="outline-danger">Exportar PDF</x-action-button>
-        <x-action-button :href="route($routePrefix.'.export.excel', request()->query())" icon="bi-file-earmark-excel" variant="outline-success">Exportar Excel</x-action-button>
+        <x-action-button :href="route($routePrefix.'.export.pdf', $report['filters'])" icon="bi-file-earmark-pdf" variant="outline-danger">Exportar PDF</x-action-button>
+        <x-action-button :href="route($routePrefix.'.export.excel', $report['filters'])" icon="bi-file-earmark-excel" variant="outline-success">Exportar Excel</x-action-button>
         <x-action-button :href="route($routePrefix.'.create')" icon="bi-plus-lg">Registrar {{ $documentLabel }}</x-action-button>
     </x-slot:actions>
 </x-page-header>
 
+<div class="card border-primary-subtle mb-4">
+    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <div class="small text-uppercase text-muted fw-semibold">Período seleccionado</div>
+            <div class="fs-5 fw-semibold">{{ $report['periodName'] }}</div>
+            <div class="text-muted">Del {{ $report['periodRange'] }}</div>
+        </div>
+        <div class="text-md-end">
+            <div class="small text-uppercase text-muted fw-semibold">Estado</div>
+            <div class="fw-semibold">{{ $report['reviewStatusLabel'] }}</div>
+        </div>
+    </div>
+</div>
+
 @include('fiscal_documents._filters')
+
+<nav class="mb-4" aria-label="Filtrar libro por estado">
+    <div class="nav nav-pills flex-wrap gap-2">
+        @foreach($reviewFilters as $status => $label)
+            @php
+                $statusQuery = array_filter(
+                    [...$report['filters'], 'review_status' => $status],
+                    fn ($value) => $value !== null && $value !== '',
+                );
+            @endphp
+            <a href="{{ route($routePrefix.'.index', $statusQuery) }}"
+               @class(['nav-link', 'active' => $report['filters']['review_status'] === $status])>
+                {{ $label }} <span @class(['badge', 'text-bg-light' => $report['filters']['review_status'] === $status, 'text-bg-secondary' => $report['filters']['review_status'] !== $status])>{{ $report['statusCounts'][$status] }}</span>
+            </a>
+        @endforeach
+    </div>
+    <div class="mt-2 text-muted">Documentos mostrados: <strong>{{ $report['shownCount'] }}</strong></div>
+</nav>
 
 <div class="row g-3 mb-4">
     @foreach([
-        ['Documentos activos', $report['count']], ['Base imponible', 'Q '.number_format((float) $report['totals']['taxable_amount'], 2)],
-        [$direction->value === 'PURCHASE' ? 'Monto exento' : 'Ventas exentas', 'Q '.number_format((float) $report['totals']['exempt_amount'], 2)],
-        [$direction->value === 'PURCHASE' ? 'IVA registrado' : 'IVA débito registrado', 'Q '.number_format((float) $report['totals']['vat_amount'], 2)],
-        ['Otros impuestos', 'Q '.number_format((float) $report['totals']['other_taxes_amount'], 2)],
-        [$direction->value === 'PURCHASE' ? 'Total de compras' : 'Total de ventas', 'Q '.number_format((float) $report['totals']['total_amount'], 2)],
-    ] as [$label, $value])<div class="col-6 col-lg-2"><div class="card h-100"><div class="card-body"><div class="small text-muted">{{ $label }}</div><strong class="d-block mt-2">{{ $value }}</strong></div></div></div>@endforeach
+        ['Documentos incluidos en totales', $report['count']],
+        ['Subtotal / base imponible', 'Q '.number_format((float) $report['totals']['taxable_amount'], 2)],
+        ['IVA', 'Q '.number_format((float) $report['totals']['vat_amount'], 2)],
+        ['Total', 'Q '.number_format((float) $report['totals']['total_amount'], 2)],
+    ] as [$label, $value])
+        <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-muted">{{ $label }}</div><strong class="d-block mt-2">{{ $value }}</strong></div></div></div>
+    @endforeach
 </div>
 
 @if($direction->value === 'PURCHASE')
@@ -26,11 +59,20 @@
 @endif
 
 <x-table-container><table class="table table-hover align-middle mb-0 small"><thead><tr><th>Fecha</th><th>Tipo</th><th>Serie / Número</th><th>UUID</th><th>NIT</th><th>{{ $thirdPartyLabel }}</th><th>Categoría</th><th>Base</th><th>Exento</th><th>IVA</th><th>Otros</th><th>Total</th>@if($direction->value === 'PURCHASE')<th>Crédito</th>@endif<th>Estado</th><th></th></tr></thead><tbody>
-@forelse($report['documents'] as $document)<tr @class(['table-secondary'=>$document->status->value==='VOIDED'])>
-    <td>{{ $document->document_date->format('d/m/Y') }}</td><td><span @class(['badge','text-bg-info'=>$document->document_type->value==='CREDIT_NOTE','text-bg-warning'=>$document->document_type->value==='DEBIT_NOTE','text-bg-light'=>!in_array($document->document_type->value,['CREDIT_NOTE','DEBIT_NOTE'])])>{{ $document->document_type->label() }}</span></td>
-    <td>{{ $document->series ?: '—' }} / {{ $document->document_number ?: '—' }}</td><td class="font-monospace">{{ Str::limit($document->authorization_uuid, 18) ?: '—' }}</td><td>{{ $document->third_party_tax_id ?: '—' }}</td><td>{{ $document->third_party_name }}</td><td>{{ $document->tax_category->label() }}</td>
-    @foreach(['taxable_amount','exempt_amount','vat_amount','other_taxes_amount','total_amount'] as $field)<td @class(['text-danger'=>$document->document_type->value==='CREDIT_NOTE'])>{{ $document->document_type->value==='CREDIT_NOTE' ? '− ' : '' }}Q {{ number_format((float) $document->{$field},2) }}</td>@endforeach
-    @if($direction->value === 'PURCHASE')<td>{{ $document->grants_tax_credit ? 'Sí' : 'No' }}</td>@endif<td><span class="badge text-bg-{{ $document->status->value==='ACTIVE'?'success':'secondary' }}">{{ $document->status->label() }}</span></td><td><a href="{{ route($routePrefix.'.show',$document->id) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
-</tr>@empty<tr><td colspan="16"><x-empty-state title="Sin documentos" message="No hay documentos fiscales para los filtros seleccionados." /></td></tr>@endforelse
+@forelse($report['documents'] as $document)
+    @php
+        $reviewStatus = $document->status->value === 'VOIDED' ? 'VOIDED' : ($document->felDocument?->status?->value ?? 'APPROVED');
+        $reviewLabels = ['APPROVED' => 'Aprobado', 'OBSERVED' => 'Observado', 'REJECTED' => 'Rechazado', 'VOIDED' => 'Anulado'];
+        $reviewColors = ['APPROVED' => 'success', 'OBSERVED' => 'warning', 'REJECTED' => 'danger', 'VOIDED' => 'secondary'];
+    @endphp
+    <tr @class(['table-secondary' => $reviewStatus === 'VOIDED'])>
+        <td>{{ $document->document_date->format('d/m/Y') }}</td><td><span @class(['badge','text-bg-info'=>$document->document_type->value==='CREDIT_NOTE','text-bg-warning'=>$document->document_type->value==='DEBIT_NOTE','text-bg-light'=>!in_array($document->document_type->value,['CREDIT_NOTE','DEBIT_NOTE'])])>{{ $document->document_type->label() }}</span></td>
+        <td>{{ $document->series ?: '—' }} / {{ $document->document_number ?: '—' }}</td><td class="font-monospace">{{ Str::limit($document->authorization_uuid, 18) ?: '—' }}</td><td>{{ $document->third_party_tax_id ?: '—' }}</td><td>{{ $document->third_party_name }}</td><td>{{ $document->tax_category->label() }}</td>
+        @foreach(['taxable_amount','exempt_amount','vat_amount','other_taxes_amount','total_amount'] as $field)<td @class(['text-danger'=>$document->document_type->value==='CREDIT_NOTE'])>{{ $document->document_type->value==='CREDIT_NOTE' ? '− ' : '' }}Q {{ number_format((float) $document->{$field},2) }}</td>@endforeach
+        @if($direction->value === 'PURCHASE')<td>{{ $document->grants_tax_credit ? 'Sí' : 'No' }}</td>@endif
+        <td><span class="badge text-bg-{{ $reviewColors[$reviewStatus] ?? 'secondary' }}">{{ $reviewLabels[$reviewStatus] ?? $reviewStatus }}</span></td>
+        <td><a href="{{ route($routePrefix.'.show',$document->id) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
+    </tr>
+@empty<tr><td colspan="16"><x-empty-state title="Sin documentos" message="No hay documentos fiscales para los filtros seleccionados." /></td></tr>@endforelse
 </tbody></table></x-table-container><div class="mt-3">{{ $report['documents']->links() }}</div>
 @endsection

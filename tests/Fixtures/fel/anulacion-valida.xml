@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<anulacion:GTAnulacionDocumento xmlns:anulacion="http://www.sat.gob.gt/dte/fel/anulacion/0.1.0" Version="0.1">
+  <anulacion:SAT>
+    <anulacion:AnulacionDTE ID="DatosCertificados">
+      <anulacion:DatosGenerales
+        ID="DatosAnulacion"
+        NumeroDocumentoAAnular="11111111-2222-4333-8444-555555555555"
+        NITEmisor="1234567"
+        IDReceptor="7654321"
+        FechaEmisionDocumentoAnular="2026-07-20T10:00:00-06:00"
+        FechaHoraAnulacion="2026-07-21T09:30:00-06:00"
+        MotivoAnulacion="Error en datos del documento" />
+    </anulacion:AnulacionDTE>
+  </anulacion:SAT>
+</anulacion:GTAnulacionDocumento>

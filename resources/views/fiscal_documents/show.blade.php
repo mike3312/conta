@@ -22,6 +22,17 @@
 
 @if($document->notes)<div class="card mt-4"><div class="card-header"><h2 class="h6 mb-0">Observaciones</h2></div><div class="card-body">{{ $document->notes }}</div></div>@endif
 
+<div class="card mt-4"><div class="card-header"><h2 class="h6 mb-0">Trazabilidad de origen</h2></div><div class="card-body"><div class="row g-3">
+<div class="col-md-4"><div class="small text-muted">Origen</div><div>{{ $document->source?->label() ?? 'Registro manual' }}</div></div>
+<div class="col-md-4"><div class="small text-muted">Referencia</div><div class="font-monospace">{{ $document->source_reference ?: '—' }}</div></div>
+<div class="col-md-4"><div class="small text-muted">Última sincronización</div><div>{{ data_get($document->source_metadata, 'synchronized_at') ? \Illuminate\Support\Carbon::parse(data_get($document->source_metadata, 'synchronized_at'))->format('d/m/Y H:i') : '—' }}</div></div>
+@if($document->felDocument)
+<div class="col-md-4"><div class="small text-muted">Nivel FEL</div><div>{{ data_get($document->source_metadata, 'source_detail_level', '—') }}</div></div>
+<div class="col-md-4"><div class="small text-muted">Lote de importación</div><div>{{ $document->felDocument->importBatch?->original_filename ?: '—' }}</div></div>
+<div class="col-md-4 d-flex align-items-end"><a class="btn btn-sm btn-outline-primary" href="{{ route('fel-documents.show', $document->felDocument) }}">Ver documento FEL</a></div>
+@endif
+</div>@foreach(data_get($document->source_metadata, 'warnings', []) as $warning)<div class="alert alert-warning small py-2 mt-3 mb-0">{{ $warning }}</div>@endforeach</div></div>
+
 @if($document->status->value === 'ACTIVE')
 <div class="card border-danger mt-4"><div class="card-header"><h2 class="h6 mb-0 text-danger">Anular documento</h2></div><div class="card-body"><p class="text-muted">La anulación conserva todos los datos y excluye el documento de los totales activos.</p><form method="POST" action="{{ route($routePrefix.'.void',$document->id) }}" data-confirm="¿Desea anular este documento fiscal?">@csrf<div class="row g-2"><div class="col-md-9"><input name="void_reason" class="form-control" maxlength="1000" placeholder="Motivo de anulación (opcional)"></div><div class="col-md-3 d-grid"><button class="btn btn-outline-danger">Anular documento</button></div></div></form></div></div>
 @endif

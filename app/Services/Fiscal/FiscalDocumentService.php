@@ -65,6 +65,40 @@ class FiscalDocumentService
         return $type === FiscalDocumentType::CREDIT_NOTE ? -1 : 1;
     }
 
+    public function persistSynchronized(
+        ?FiscalDocument $document,
+        int $companyId,
+        FiscalDocumentDirection $direction,
+        array $attributes,
+        ?User $user = null,
+    ): FiscalDocument {
+        $this->assertReferencesBelongToCompany($companyId, $attributes);
+        $this->assertPeriodIsOpen($companyId, $attributes['document_date'], $attributes['accounting_period_id'] ?? null);
+        $attributes = $this->normalize($attributes, $direction);
+
+        return DB::transaction(function () use ($document, $companyId, $direction, $attributes, $user) {
+            if ($document) {
+                $document->update([
+                    ...$attributes,
+                    'company_id' => $companyId,
+                    'direction' => $direction,
+                    'updated_by' => $user?->id ?? $document->updated_by,
+                    'journal_entry_id' => $document->journal_entry_id,
+                ]);
+
+                return $document->refresh();
+            }
+
+            return FiscalDocument::create([
+                ...$attributes,
+                'company_id' => $companyId,
+                'direction' => $direction,
+                'created_by' => $user?->id ?? $attributes['created_by'] ?? null,
+                'journal_entry_id' => null,
+            ]);
+        });
+    }
+
     public function ensureModifiable(FiscalDocument $document): void
     {
         $this->assertActive($document);

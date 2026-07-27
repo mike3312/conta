@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Fiscal;
 
-use App\Enums\FiscalDocumentStatus;
 use App\Enums\FiscalDocumentType;
 use App\Enums\FiscalTaxCategory;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,7 +24,7 @@ class FiscalBookRequest extends FormRequest
             'accounting_period_id' => ['nullable', 'integer', Rule::exists('accounting_periods', 'id')->where(fn ($query) => $query->where('company_id', $companyId))],
             'document_type' => ['nullable', Rule::enum(FiscalDocumentType::class)],
             'tax_category' => ['nullable', Rule::enum(FiscalTaxCategory::class)],
-            'status' => ['nullable', Rule::enum(FiscalDocumentStatus::class)],
+            'review_status' => ['nullable', Rule::in(['ALL', 'APPROVED', 'OBSERVED', 'REJECTED', 'VOIDED'])],
             'third_party_tax_id' => ['nullable', 'string', 'max:30'],
             'third_party_name' => ['nullable', 'string', 'max:255'],
             'series' => ['nullable', 'string', 'max:50'],

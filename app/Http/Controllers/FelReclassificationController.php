@@ -40,7 +40,7 @@ class FelReclassificationController extends Controller
         $scope = $this->validatedScope($request);
 
         try {
-            $summary = $service->preview($company->id, $scope === 'unknown');
+            $summary = $service->preview($company->id, $scope === 'unknown', $request->user());
         } catch (Throwable $exception) {
             $this->logRequestFailure('preview', $request, $company, $scope, $exception);
 
@@ -96,7 +96,7 @@ class FelReclassificationController extends Controller
         Log::info('FEL reclassification started', $this->auditContext($request, $company, $scope));
 
         try {
-            $summary = $service->execute($company->id, $scope === 'unknown');
+            $summary = $service->execute($company->id, $scope === 'unknown', $request->user());
         } catch (Throwable $exception) {
             $this->logRequestFailure('execute', $request, $company, $scope, $exception);
 

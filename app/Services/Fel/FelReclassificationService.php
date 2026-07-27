@@ -6,15 +6,20 @@ use App\Enums\FelDocumentClassification;
 use App\Enums\FelOperationType;
 use App\Models\Company;
 use App\Models\FelDocument;
+use App\Models\User;
+use App\Services\Fiscal\FelFiscalDocumentSyncService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class FelReclassificationService
 {
-    public function __construct(private readonly FelClassificationService $classifier) {}
+    public function __construct(
+        private readonly FelClassificationService $classifier,
+        private readonly ?FelFiscalDocumentSyncService $fiscalSync = null,
+    ) {}
 
-    public function preview(int $companyId, bool $onlyUnknown = true): array
+    public function preview(int $companyId, bool $onlyUnknown = true, ?User $user = null): array
     {
         return $this->run(
             companyId: $companyId,
@@ -22,15 +27,17 @@ class FelReclassificationService
             dryRun: true,
             includeReviewed: true,
             collectChanges: true,
+            user: $user,
         );
     }
 
-    public function execute(int $companyId, bool $onlyUnknown = true): array
+    public function execute(int $companyId, bool $onlyUnknown = true, ?User $user = null): array
     {
         return $this->run(
             companyId: $companyId,
             onlyUnknown: $onlyUnknown,
             includeReviewed: true,
+            user: $user,
         );
     }
 
@@ -42,6 +49,7 @@ class FelReclassificationService
         ?callable $onChange = null,
         bool $collectChanges = false,
         int $changeLimit = 100,
+        ?User $user = null,
     ): array {
         // Always reload the current company and its current NIT from the database.
         $company = Company::query()->findOrFail($companyId);
@@ -79,12 +87,17 @@ class FelReclassificationService
             'fuel' => 0,
             'lodging' => 0,
             'tax_review_required' => 0,
+            'fiscal_created' => 0,
+            'fiscal_updated' => 0,
+            'fiscal_unchanged' => 0,
+            'fiscal_observed' => 0,
+            'fiscal_conflicts' => 0,
             'changes' => [],
             'changes_truncated' => false,
             'dry_run' => $dryRun,
         ];
 
-        $query->orderBy('id')->chunkById(100, function ($documents) use ($company, $dryRun, $onChange, $collectChanges, $changeLimit, &$summary) {
+        $query->orderBy('id')->chunkById(100, function ($documents) use ($company, $dryRun, $onChange, $collectChanges, $changeLimit, $user, &$summary) {
             foreach ($documents as $document) {
                 try {
                     $classification = $this->classifier->classify($this->classificationData($document), $company->tax_id);
@@ -113,6 +126,24 @@ class FelReclassificationService
                     } else {
                         $summary['unchanged']++;
                     }
+
+                    $syncDocument = $dryRun ? clone $document : $document->refresh();
+                    if ($dryRun) {
+                        $syncDocument->setRawAttributes([...$document->getAttributes(),
+                            'operation_type' => $changes['operation_type']->value,
+                            'classification' => $changes['classification']->value,
+                            'requires_tax_review' => $changes['requires_tax_review'],
+                        ], true);
+                    }
+                    $sync = ($this->fiscalSync ?? app(FelFiscalDocumentSyncService::class))
+                        ->syncFromFel($syncDocument, $user, $dryRun);
+                    match ($sync->action) {
+                        'CREATED' => $summary['fiscal_created']++,
+                        'UPDATED' => $summary['fiscal_updated']++,
+                        'UNCHANGED' => $summary['fiscal_unchanged']++,
+                        'CONFLICT' => $summary['fiscal_conflicts']++,
+                        default => $summary['fiscal_observed']++,
+                    };
 
                     $summary['processed']++;
                     $this->addClassificationTotals($summary, $changes);

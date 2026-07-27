@@ -25,4 +25,14 @@ php artisan test --filter=FiscalBooksTest
 
 `FiscalDocumentDemoSeeder` es opcional y nunca se invoca desde `DatabaseSeeder`.
 
-La determinación final de IVA por pagar o saldo a favor, la declaración, la confrontación contable y la integración automática con FEL/SAT quedan fuera de esta fase.
+La determinación final de IVA por pagar o saldo a favor, la declaración, la confrontación contable y la conexión directa con SAT quedan fuera de esta fase.
+
+## Integración con FEL
+
+Los libros reciben automáticamente los documentos reconocidos por el importador FEL existente. El vínculo se conserva mediante `fiscal_documents.fel_document_id`, mientras el UUID funciona como clave de idempotencia por empresa. Los documentos con datos insuficientes, operación desconocida, moneda sin tipo de cambio, conflicto manual o período cerrado quedan observados y no generan registros fiscales incompletos.
+
+Consulte [FEL_FISCAL_SYNC.md](FEL_FISCAL_SYNC.md) para el mapeo, comandos y limitaciones.
+
+Esta integración utiliza el importador FEL existente. No crea otro flujo de carga de archivos.
+
+Los documentos fiscales se generan automáticamente, pero no se crean pólizas ni asientos contables.

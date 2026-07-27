@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FelDocument extends Model
 {
@@ -62,5 +63,10 @@ class FelDocument extends Model
     public function taxes(): HasMany
     {
         return $this->hasMany(FelDocumentTax::class);
+    }
+
+    public function fiscalDocument(): HasOne
+    {
+        return $this->hasOne(FiscalDocument::class);
     }
 }

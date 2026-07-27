@@ -124,6 +124,8 @@ class FelImportTest extends TestCase
         $document = FelDocument::firstOrFail();
         $this->assertSame('FULL_DETAIL', $document->data_level->value);
         $this->assertCount(1, $document->items);
+        $this->assertDatabaseCount('fiscal_documents', 1);
+        $this->assertSame($document->id, $document->fiscalDocument->fel_document_id);
         $this->assertDatabaseHas('fel_import_rows', ['status' => 'ENRICHED', 'fel_document_id' => $document->id]);
         Log::shouldHaveReceived('info')->with('FEL Excel/CSV processed', Mockery::type('array'))->once();
         Log::shouldHaveReceived('info')->with('FEL document enriched', Mockery::type('array'))->once();

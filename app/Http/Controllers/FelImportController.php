@@ -45,7 +45,12 @@ class FelImportController extends Controller
     public function store(StoreFelImportRequest $request, FelDocumentImportService $importer): RedirectResponse
     {
         try {
-            $company = $request->user()->companies()->active()->wherePivot('is_active', true)->whereKey(session('company_id'))->firstOrFail();
+            $company = $request->user()->companies()
+                ->active()
+                ->where('companies.tenant_id', $request->user()->tenant_id)
+                ->wherePivot('is_active', true)
+                ->whereKey(session('company_id'))
+                ->firstOrFail();
             $batches = collect($request->file('files'))->map(fn ($file) => $importer->import($file, $company, $request->user()));
         } catch (Throwable $exception) {
             $technical = $exception instanceof FelImportException && $exception->getPrevious() ? $exception->getPrevious() : $exception;
@@ -96,6 +101,12 @@ class FelImportController extends Controller
 
     private function authorizeBatch(FelImportBatch $batch): void
     {
-        abort_unless((int) $batch->company_id === (int) session('company_id'), 403);
+        $user = request()->user();
+        abort_unless(
+            (int) $batch->company_id === (int) session('company_id')
+            && (int) $batch->tenant_id === (int) $user->tenant_id
+            && $user->companies()->whereKey($batch->company_id)->wherePivot('is_active', true)->exists(),
+            403,
+        );
     }
 }
