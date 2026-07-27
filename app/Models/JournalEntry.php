@@ -48,6 +48,11 @@ class JournalEntry extends Model
         return $this->hasMany(JournalEntryLine::class)->orderBy('line_order');
     }
 
+    public function fiscalDocuments(): HasMany
+    {
+        return $this->hasMany(FiscalDocument::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

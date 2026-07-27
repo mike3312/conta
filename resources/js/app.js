@@ -43,6 +43,12 @@ document.addEventListener('DOMContentLoaded', renderDashboardChart);
 document.addEventListener('livewire:navigated', renderDashboardChart);
 
 document.addEventListener('submit', event => {
+    const confirmation = event.target.dataset.confirm;
+    if (confirmation && !window.confirm(confirmation)) {
+        event.preventDefault();
+        return;
+    }
+
     const form = event.target.closest('[data-loading-form]');
     if (!form) return;
 

@@ -14,6 +14,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FelDocumentController;
 use App\Http\Controllers\FelImportController;
 use App\Http\Controllers\FelReclassificationController;
+use App\Http\Controllers\Fiscal\FiscalPurchaseController;
+use App\Http\Controllers\Fiscal\FiscalSaleController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -88,6 +90,29 @@ Route::middleware(['auth', 'verified', 'company'])->group(function () {
     Route::post('fel/reclassification/preview', [FelReclassificationController::class, 'preview'])->name('fel.reclassification.preview');
     Route::post('fel/reclassification/execute', [FelReclassificationController::class, 'execute'])->name('fel.reclassification.execute');
     Route::get('fel/reclassification/result', [FelReclassificationController::class, 'result'])->name('fel.reclassification.result');
+
+    Route::prefix('fiscal-purchases')->name('fiscal-purchases.')->controller(FiscalPurchaseController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/export/pdf', 'exportPdf')->name('export.pdf');
+        Route::get('/export/excel', 'exportExcel')->name('export.excel');
+        Route::get('/{document}', 'show')->name('show');
+        Route::get('/{document}/edit', 'edit')->name('edit');
+        Route::put('/{document}', 'update')->name('update');
+        Route::post('/{document}/void', 'void')->name('void');
+    });
+    Route::prefix('fiscal-sales')->name('fiscal-sales.')->controller(FiscalSaleController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/export/pdf', 'exportPdf')->name('export.pdf');
+        Route::get('/export/excel', 'exportExcel')->name('export.excel');
+        Route::get('/{document}', 'show')->name('show');
+        Route::get('/{document}/edit', 'edit')->name('edit');
+        Route::put('/{document}', 'update')->name('update');
+        Route::post('/{document}/void', 'void')->name('void');
+    });
 
 });
 

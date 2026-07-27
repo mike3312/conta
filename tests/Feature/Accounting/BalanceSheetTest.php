@@ -146,8 +146,8 @@ class BalanceSheetTest extends TestCase
         $this->recordExpense('30.00');
 
         $this->get(route('accounting.balance-sheet.index'))
-            ->assertDontSee('Ventas')
-            ->assertDontSee('Alquileres')
+            ->assertDontSee('4.1.01')
+            ->assertDontSee('5.1.01')
             ->assertSee('Resultado acumulado pendiente de cierre');
     }
 

@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
@@ -70,19 +70,28 @@ class RolesAndPermissionsSeeder extends Seeder
 
             if ($modulo === 'dashboard') {
                 Permission::firstOrCreate([
-                    'name' => 'dashboard.ver'
+                    'name' => 'dashboard.ver',
                 ]);
+
                 continue;
             }
 
             foreach ($acciones as $accion) {
 
                 Permission::firstOrCreate([
-                    'name' => "{$modulo}.{$accion}"
+                    'name' => "{$modulo}.{$accion}",
                 ]);
 
             }
 
+        }
+
+        $fiscalPermissions = [
+            'fiscal_purchases.view', 'fiscal_purchases.create', 'fiscal_purchases.update', 'fiscal_purchases.void',
+            'fiscal_sales.view', 'fiscal_sales.create', 'fiscal_sales.update', 'fiscal_sales.void',
+        ];
+        foreach ($fiscalPermissions as $permission) {
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
         /*
@@ -92,27 +101,27 @@ class RolesAndPermissionsSeeder extends Seeder
         */
 
         $superAdmin = Role::firstOrCreate([
-            'name' => 'Super Admin'
+            'name' => 'Super Admin',
         ]);
 
         $dueno = Role::firstOrCreate([
-            'name' => 'Dueño'
+            'name' => 'Dueño',
         ]);
 
         $administrador = Role::firstOrCreate([
-            'name' => 'Administrador'
+            'name' => 'Administrador',
         ]);
 
         $contador = Role::firstOrCreate([
-            'name' => 'Contador'
+            'name' => 'Contador',
         ]);
 
         $cajero = Role::firstOrCreate([
-            'name' => 'Cajero'
+            'name' => 'Cajero',
         ]);
 
         $auditor = Role::firstOrCreate([
-            'name' => 'Auditor'
+            'name' => 'Auditor',
         ]);
 
         /*
@@ -166,6 +175,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'asientos.crear',
 
             'reportes.ver',
+            ...$fiscalPermissions,
         ]);
 
         $cajero->givePermissionTo([
@@ -192,6 +202,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'compras.ver',
 
             'contabilidad.ver',
+            'fiscal_purchases.view',
+            'fiscal_sales.view',
         ]);
     }
 }

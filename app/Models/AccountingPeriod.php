@@ -40,4 +40,9 @@ class AccountingPeriod extends Model
     {
         return $this->hasMany(JournalEntry::class);
     }
+
+    public function fiscalDocuments(): HasMany
+    {
+        return $this->hasMany(FiscalDocument::class);
+    }
 }
