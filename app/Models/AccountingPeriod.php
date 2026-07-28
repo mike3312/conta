@@ -45,4 +45,9 @@ class AccountingPeriod extends Model
     {
         return $this->hasMany(FiscalDocument::class);
     }
+
+    public function vatDeclarations(): HasMany
+    {
+        return $this->hasMany(VatDeclaration::class);
+    }
 }

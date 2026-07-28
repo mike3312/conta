@@ -7,15 +7,16 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Account;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Company extends Model
 {
     use HasFactory;
-    use SoftDeletes;
     use HasUuid;
+    use SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -71,20 +72,25 @@ class Company extends Model
     {
         return $query->where('status', CompanyStatus::INACTIVE);
     }
-public function owners(): BelongsToMany
-{
-    return $this->users()
-        ->wherePivot('is_owner', true);
-}
 
-public function tenant(): BelongsTo
-{
-    return $this->belongsTo(Tenant::class);
-}
+    public function owners(): BelongsToMany
+    {
+        return $this->users()
+            ->wherePivot('is_owner', true);
+    }
 
-public function accounts()
-{
-    return $this->hasMany(Account::class);
-}
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
+    public function accounts()
+    {
+        return $this->hasMany(Account::class);
+    }
+
+    public function vatDeclarations(): HasMany
+    {
+        return $this->hasMany(VatDeclaration::class);
+    }
 }

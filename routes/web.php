@@ -11,11 +11,13 @@ use App\Http\Controllers\Accounting\TrialBalanceController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanySwitchController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FelBulkReviewController;
 use App\Http\Controllers\FelDocumentController;
 use App\Http\Controllers\FelImportController;
 use App\Http\Controllers\FelReclassificationController;
 use App\Http\Controllers\Fiscal\FiscalPurchaseController;
 use App\Http\Controllers\Fiscal\FiscalSaleController;
+use App\Http\Controllers\Fiscal\VatDeclarationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -80,6 +82,7 @@ Route::middleware(['auth', 'verified', 'company'])->group(function () {
     Route::post('fel-imports', [FelImportController::class, 'store'])->name('fel-imports.store');
     Route::get('fel-imports/{felImportBatch}', [FelImportController::class, 'show'])->name('fel-imports.show');
     Route::get('fel-documents', [FelDocumentController::class, 'index'])->name('fel-documents.index');
+    Route::post('fel-documents/bulk-review', FelBulkReviewController::class)->name('fel-documents.bulk-review');
     Route::get('fel-documents/{felDocument}', [FelDocumentController::class, 'show'])->name('fel-documents.show');
     Route::post('fel-documents/{felDocument}/approve', [FelDocumentController::class, 'approve'])->name('fel-documents.approve');
     Route::post('fel-documents/{felDocument}/observe', [FelDocumentController::class, 'observe'])->name('fel-documents.observe');
@@ -112,6 +115,20 @@ Route::middleware(['auth', 'verified', 'company'])->group(function () {
         Route::get('/{document}/edit', 'edit')->name('edit');
         Route::put('/{document}', 'update')->name('update');
         Route::post('/{document}/void', 'void')->name('void');
+    });
+
+    Route::prefix('vat-declarations')->name('vat-declarations.')->controller(VatDeclarationController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/preview', 'preview')->name('preview');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{vatDeclaration}', 'show')->name('show');
+        Route::post('/{vatDeclaration}/recalculate', 'recalculate')->name('recalculate');
+        Route::post('/{vatDeclaration}/review', 'review')->name('review');
+        Route::post('/{vatDeclaration}/ready', 'ready')->name('ready');
+        Route::post('/{vatDeclaration}/draft', 'draft')->name('draft');
+        Route::post('/{vatDeclaration}/file', 'file')->name('file');
+        Route::get('/{vatDeclaration}/export/pdf', 'exportPdf')->name('export.pdf');
+        Route::get('/{vatDeclaration}/export/excel', 'exportExcel')->name('export.excel');
     });
 
 });

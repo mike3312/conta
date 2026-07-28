@@ -30,6 +30,7 @@ return [
         'children' => [
             ['title' => 'Libro de Compras', 'route' => 'fiscal-purchases.index', 'icon' => 'bi-cart-check', 'active' => ['fiscal-purchases.*']],
             ['title' => 'Libro de Ventas', 'route' => 'fiscal-sales.index', 'icon' => 'bi-receipt', 'active' => ['fiscal-sales.*']],
+            ['title' => 'Declaración de IVA', 'route' => 'vat-declarations.index', 'icon' => 'bi-file-earmark-check', 'active' => ['vat-declarations.*']],
         ],
     ],
     [

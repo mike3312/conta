@@ -90,7 +90,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'fiscal_purchases.view', 'fiscal_purchases.create', 'fiscal_purchases.update', 'fiscal_purchases.void',
             'fiscal_sales.view', 'fiscal_sales.create', 'fiscal_sales.update', 'fiscal_sales.void',
         ];
-        foreach ($fiscalPermissions as $permission) {
+        $workflowPermissions = [
+            'fel.documents.review', 'fel.documents.bulk-review',
+            'vat.declarations.view', 'vat.declarations.create', 'vat.declarations.update',
+            'vat.declarations.review', 'vat.declarations.file', 'vat.declarations.export',
+        ];
+        foreach ([...$fiscalPermissions, ...$workflowPermissions] as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }
 

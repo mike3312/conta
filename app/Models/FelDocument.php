@@ -69,4 +69,9 @@ class FelDocument extends Model
     {
         return $this->hasOne(FiscalDocument::class);
     }
+
+    public function reviewLogs(): HasMany
+    {
+        return $this->hasMany(FelDocumentReviewLog::class);
+    }
 }
