@@ -153,3 +153,13 @@ La demostración debe enfatizar que no existe consolidación entre empresas y qu
 9. Abre Libro Diario, Libro Mayor, Estado de Resultados y Balance General para demostrar que la información histórica sigue disponible.
 
 El cierre no elimina movimientos, no genera una póliza automática y no puede forzarse ni revertirse en la versión actual.
+
+## Ejecución automática
+
+Con un usuario existente, ejecuta:
+
+```bash
+php artisan db:seed --class=DemoSeeder
+```
+
+El seeder reproduce esta guía manual para **Comercializadora Demo**, agosto de 2026 y sus cuatro pólizas. En producción debe ejecutarse con `--force`.
